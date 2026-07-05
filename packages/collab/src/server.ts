@@ -26,10 +26,16 @@ export interface DocPersistence {
   saveSnapshot?(docId: string, state: Uint8Array, updateCount: number): Promise<void>;
 }
 
+interface SocketEntry {
+  clientIds: Set<number>;
+  /** Read-only clients receive updates + awareness but may not mutate the doc. */
+  readOnly: boolean;
+}
+
 interface Room {
   ydoc: Y.Doc;
   awareness: awarenessProtocol.Awareness;
-  sockets: Map<SocketLike, { clientIds: Set<number> }>;
+  sockets: Map<SocketLike, SocketEntry>;
   updateCount: number;
   onUpdate: (update: Uint8Array, origin: unknown) => void;
   onAwarenessUpdate: (
@@ -39,6 +45,8 @@ interface Room {
 }
 
 const DEFAULT_COMPACT_AFTER_UPDATES = 200;
+/** Reject inbound frames larger than this (DoS guard). 4 MiB comfortably fits real doc updates. */
+const DEFAULT_MAX_MESSAGE_BYTES = 4 * 1024 * 1024;
 
 /**
  * Transport-agnostic sync hub: one room per docId, holding the canonical
@@ -48,12 +56,17 @@ const DEFAULT_COMPACT_AFTER_UPDATES = 200;
 export class DocSyncHub {
   private readonly persistence: DocPersistence;
   private readonly compactAfterUpdates: number;
+  private readonly maxMessageBytes: number;
   private readonly rooms = new Map<string, Room>();
   private readonly loading = new Map<string, Promise<Room>>();
 
-  constructor(persistence: DocPersistence, opts: { compactAfterUpdates?: number } = {}) {
+  constructor(
+    persistence: DocPersistence,
+    opts: { compactAfterUpdates?: number; maxMessageBytes?: number } = {},
+  ) {
     this.persistence = persistence;
     this.compactAfterUpdates = opts.compactAfterUpdates ?? DEFAULT_COMPACT_AFTER_UPDATES;
+    this.maxMessageBytes = opts.maxMessageBytes ?? DEFAULT_MAX_MESSAGE_BYTES;
   }
 
   async getDoc(docId: string): Promise<Y.Doc> {
@@ -65,9 +78,14 @@ export class DocSyncHub {
     return this.rooms.get(docId)?.sockets.size ?? 0;
   }
 
-  async handleConnection(socket: SocketLike, docId: string): Promise<void> {
+  async handleConnection(
+    socket: SocketLike,
+    docId: string,
+    opts: { readOnly?: boolean } = {},
+  ): Promise<void> {
     const room = await this.getRoom(docId);
-    room.sockets.set(socket, { clientIds: new Set() });
+    const readOnly = opts.readOnly ?? false;
+    room.sockets.set(socket, { clientIds: new Set(), readOnly });
 
     // Bidirectional sync: greet the new peer with our state and ask for theirs.
     const syncStep2 = createMessage(MESSAGE_SYNC);
@@ -90,7 +108,12 @@ export class DocSyncHub {
 
     socket.on('message', (data?: unknown) => {
       const buf = this.toUint8Array(data);
-      if (buf) this.handleMessage(room, socket, buf);
+      if (!buf) return;
+      if (buf.byteLength > this.maxMessageBytes) {
+        // Oversized frame — drop it rather than apply/persist unbounded data.
+        return;
+      }
+      this.handleMessage(room, socket, buf, readOnly);
     });
 
     socket.on('close', () => {
@@ -177,17 +200,35 @@ export class DocSyncHub {
     return room;
   }
 
-  private handleMessage(room: Room, socket: SocketLike, data: Uint8Array): void {
+  private handleMessage(
+    room: Room,
+    socket: SocketLike,
+    data: Uint8Array,
+    readOnly: boolean,
+  ): void {
     const decoder = toDecoder(data);
     const messageType = readMessageType(decoder);
     switch (messageType) {
       case MESSAGE_SYNC: {
+        if (readOnly) {
+          // Serve reads (SyncStep1 → SyncStep2) but never apply the client's
+          // writes (SyncStep2 / Update) to the canonical doc.
+          const syncMessageType = decoding.readVarUint(decoder);
+          if (syncMessageType === syncProtocol.messageYjsSyncStep1) {
+            const encoder = createMessage(MESSAGE_SYNC);
+            syncProtocol.writeSyncStep2(encoder, room.ydoc);
+            socket.send(toBuffer(encoder));
+          }
+          // messageYjsSyncStep2 / messageYjsUpdate from a read-only client: dropped.
+          break;
+        }
         const encoder = createMessage(MESSAGE_SYNC);
         syncProtocol.readSyncMessage(decoder, encoder, room.ydoc, socket);
         if (encoding.length(encoder) > 1) socket.send(toBuffer(encoder));
         break;
       }
       case MESSAGE_AWARENESS: {
+        // Awareness (cursors/presence) is allowed for read-only clients.
         const update = decoding.readVarUint8Array(decoder);
         awarenessProtocol.applyAwarenessUpdate(room.awareness, update, socket);
         break;

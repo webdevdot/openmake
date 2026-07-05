@@ -20,6 +20,15 @@ async function resolveOrgIdFromFileParam(request: FastifyRequest): Promise<strin
 }
 
 export async function commentRoutes(app: FastifyInstance): Promise<void> {
+  /** Returns the comment only if it belongs to the file in the URL (IDOR guard). */
+  const loadOwnedComment = async (commentId: string, fileId: string) => {
+    const comment = await app.db.comments.findById(commentId);
+    if (!comment || comment.fileId !== fileId) {
+      throw new HttpError(404, 'NOT_FOUND', 'Comment not found');
+    }
+    return comment;
+  };
+
   app.get(
     '/files/:fileId/comments',
     { preHandler: [app.authenticate, requireOrgRole('VIEWER', resolveOrgIdFromFileParam)] },
@@ -52,7 +61,8 @@ export async function commentRoutes(app: FastifyInstance): Promise<void> {
     '/files/:fileId/comments/:commentId',
     { preHandler: [app.authenticate, requireOrgRole('VIEWER', resolveOrgIdFromFileParam)] },
     async (request) => {
-      const { commentId } = parseOrThrow(CommentParamsSchema, request.params);
+      const { fileId, commentId } = parseOrThrow(CommentParamsSchema, request.params);
+      await loadOwnedComment(commentId, fileId);
       const body = parseOrThrow(UpdateCommentSchema, request.body);
       const comment = body.resolved
         ? await app.db.comments.resolve(commentId)
@@ -65,9 +75,8 @@ export async function commentRoutes(app: FastifyInstance): Promise<void> {
     '/files/:fileId/comments/:commentId',
     { preHandler: [app.authenticate, requireOrgRole('VIEWER', resolveOrgIdFromFileParam)] },
     async (request, reply) => {
-      const { commentId } = parseOrThrow(CommentParamsSchema, request.params);
-      const comment = await app.db.comments.findById(commentId);
-      if (!comment) throw new HttpError(404, 'NOT_FOUND', 'Comment not found');
+      const { fileId, commentId } = parseOrThrow(CommentParamsSchema, request.params);
+      const comment = await loadOwnedComment(commentId, fileId);
 
       const isAuthor = comment.authorId === request.user!.id;
       if (!isAuthor) {

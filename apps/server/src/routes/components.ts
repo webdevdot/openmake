@@ -56,6 +56,30 @@ export async function componentRoutes(app: FastifyInstance): Promise<void> {
     async (request, reply) => {
       const { fileId, nodeId } = parseOrThrow(NodeParamsSchema, request.params);
       const body = parseOrThrow(AttachmentSchema, request.body);
+      const orgId = request.orgId!;
+
+      // Referenced skill/agent/workflow must be owned by this org (built-in skills allowed) — IDOR guard.
+      if (body.skillId) {
+        const skill = await app.db.prisma.skill.findFirst({
+          where: { id: body.skillId, OR: [{ orgId }, { builtIn: true }] },
+          select: { id: true },
+        });
+        if (!skill) throw new HttpError(404, 'NOT_FOUND', `Skill "${body.skillId}" not found`);
+      }
+      if (body.agentId) {
+        const agent = await app.db.prisma.agent.findFirst({
+          where: { id: body.agentId, orgId },
+          select: { id: true },
+        });
+        if (!agent) throw new HttpError(404, 'NOT_FOUND', `Agent "${body.agentId}" not found`);
+      }
+      if (body.workflowId) {
+        const workflow = await app.db.prisma.workflow.findFirst({
+          where: { id: body.workflowId, orgId },
+          select: { id: true },
+        });
+        if (!workflow) throw new HttpError(404, 'NOT_FOUND', `Workflow "${body.workflowId}" not found`);
+      }
 
       const doc = await loadOpenDoc(app.db, fileId);
       const node = doc.getNode(nodeId);

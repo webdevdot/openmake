@@ -104,6 +104,17 @@ export async function orgRoutes(app: FastifyInstance): Promise<void> {
     { preHandler: [app.authenticate, requireOrgRole('ADMIN', resolveOrgIdFromParams)] },
     async (request, reply) => {
       const body = parseOrThrow(AddMemberSchema, request.body);
+      // Only an existing OWNER may grant the OWNER role (privilege-escalation guard).
+      if (body.role === 'OWNER') {
+        const actorIsOwner = await app.db.orgs.hasAtLeastRole(
+          request.orgId!,
+          request.user!.id,
+          'OWNER',
+        );
+        if (!actorIsOwner) {
+          throw new HttpError(403, 'FORBIDDEN', 'Only an owner can grant the owner role');
+        }
+      }
       const email = normalizeEmail(body.email);
       const user = await app.db.users.findByEmail(email);
       if (!user) {
@@ -121,6 +132,18 @@ export async function orgRoutes(app: FastifyInstance): Promise<void> {
     async (request) => {
       const { userId } = parseOrThrow(MemberParamsSchema, request.params);
       const body = parseOrThrow(UpdateMemberSchema, request.body);
+
+      // Only an existing OWNER may promote someone to OWNER (privilege-escalation guard).
+      if (body.role === 'OWNER') {
+        const actorIsOwner = await app.db.orgs.hasAtLeastRole(
+          request.orgId!,
+          request.user!.id,
+          'OWNER',
+        );
+        if (!actorIsOwner) {
+          throw new HttpError(403, 'FORBIDDEN', 'Only an owner can grant the owner role');
+        }
+      }
 
       if (body.role !== 'OWNER') {
         const target = await app.db.orgs.getMember(request.orgId!, userId);

@@ -63,10 +63,13 @@ export async function skillRoutes(app: FastifyInstance): Promise<void> {
     '/orgs/:orgId/skills/:skillId',
     { preHandler: [app.authenticate, requireOrgRole('EDITOR', resolveOrgIdFromOrgParam)] },
     async (request) => {
-      const { skillId } = parseOrThrow(SkillIdParamsSchema, request.params);
+      const { orgId, skillId } = parseOrThrow(SkillIdParamsSchema, request.params);
       const body = parseOrThrow(UpdateSkillSchema, request.body);
       const existing = await app.db.skills.findById(skillId);
-      if (!existing) throw new HttpError(404, 'NOT_FOUND', 'Skill not found');
+      // Ownership check: the skill must belong to the org in the URL (IDOR guard).
+      if (!existing || existing.orgId !== orgId) {
+        throw new HttpError(404, 'NOT_FOUND', 'Skill not found');
+      }
       if (existing.builtIn) throw new HttpError(403, 'FORBIDDEN', 'Built-in skills are immutable');
       const skill = await app.db.skills.update(skillId, {
         ...body,
@@ -82,9 +85,12 @@ export async function skillRoutes(app: FastifyInstance): Promise<void> {
     '/orgs/:orgId/skills/:skillId',
     { preHandler: [app.authenticate, requireOrgRole('EDITOR', resolveOrgIdFromOrgParam)] },
     async (request, reply) => {
-      const { skillId } = parseOrThrow(SkillIdParamsSchema, request.params);
+      const { orgId, skillId } = parseOrThrow(SkillIdParamsSchema, request.params);
       const existing = await app.db.skills.findById(skillId);
-      if (!existing) throw new HttpError(404, 'NOT_FOUND', 'Skill not found');
+      // Ownership check: the skill must belong to the org in the URL (IDOR guard).
+      if (!existing || existing.orgId !== orgId) {
+        throw new HttpError(404, 'NOT_FOUND', 'Skill not found');
+      }
       if (existing.builtIn) throw new HttpError(403, 'FORBIDDEN', 'Built-in skills are immutable');
       await app.db.skills.delete(skillId);
       reply.status(204);

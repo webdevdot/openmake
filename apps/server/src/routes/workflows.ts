@@ -26,6 +26,14 @@ async function resolveOrgIdFromOrgParam(request: FastifyRequest): Promise<string
 }
 
 export async function workflowRoutes(app: FastifyInstance): Promise<void> {
+  /** 404s unless the workflow belongs to the org in the URL (IDOR guard). */
+  const assertWorkflowOwned = async (workflowId: string, orgId: string): Promise<void> => {
+    const workflow = await app.db.workflows.findById(workflowId);
+    if (!workflow || workflow.orgId !== orgId) {
+      throw new HttpError(404, 'NOT_FOUND', 'Workflow not found');
+    }
+  };
+
   app.get(
     '/orgs/:orgId/workflows',
     { preHandler: [app.authenticate, requireOrgRole('VIEWER', resolveOrgIdFromOrgParam)] },
@@ -57,9 +65,11 @@ export async function workflowRoutes(app: FastifyInstance): Promise<void> {
     '/orgs/:orgId/workflows/:workflowId',
     { preHandler: [app.authenticate, requireOrgRole('VIEWER', resolveOrgIdFromOrgParam)] },
     async (request) => {
-      const { workflowId } = parseOrThrow(WorkflowIdParamsSchema, request.params);
+      const { orgId, workflowId } = parseOrThrow(WorkflowIdParamsSchema, request.params);
       const workflow = await app.db.workflows.findById(workflowId);
-      if (!workflow) throw new HttpError(404, 'NOT_FOUND', 'Workflow not found');
+      if (!workflow || workflow.orgId !== orgId) {
+        throw new HttpError(404, 'NOT_FOUND', 'Workflow not found');
+      }
       return { workflow };
     },
   );
@@ -68,7 +78,8 @@ export async function workflowRoutes(app: FastifyInstance): Promise<void> {
     '/orgs/:orgId/workflows/:workflowId',
     { preHandler: [app.authenticate, requireOrgRole('EDITOR', resolveOrgIdFromOrgParam)] },
     async (request) => {
-      const { workflowId } = parseOrThrow(WorkflowIdParamsSchema, request.params);
+      const { orgId, workflowId } = parseOrThrow(WorkflowIdParamsSchema, request.params);
+      await assertWorkflowOwned(workflowId, orgId);
       const body = parseOrThrow(UpdateWorkflowSchema, request.body);
       const workflow = await app.db.workflows.update(workflowId, body);
       return { workflow };
@@ -79,7 +90,8 @@ export async function workflowRoutes(app: FastifyInstance): Promise<void> {
     '/orgs/:orgId/workflows/:workflowId',
     { preHandler: [app.authenticate, requireOrgRole('EDITOR', resolveOrgIdFromOrgParam)] },
     async (request, reply) => {
-      const { workflowId } = parseOrThrow(WorkflowIdParamsSchema, request.params);
+      const { orgId, workflowId } = parseOrThrow(WorkflowIdParamsSchema, request.params);
+      await assertWorkflowOwned(workflowId, orgId);
       await app.db.workflows.delete(workflowId);
       reply.status(204);
     },

@@ -88,7 +88,51 @@ export class PgIntelligenceStore implements IntelligenceStore {
     });
   }
 
+  /** Rejects a file id whose project is not owned by this store's org (IDOR guard). */
+  private async assertFileOwned(fileId: string): Promise<void> {
+    const file = await this.db.prisma.file.findFirst({
+      where: { id: fileId, deletedAt: null, project: { orgId: this.orgId } },
+      select: { id: true },
+    });
+    if (!file) throw new Error(`File "${fileId}" not found`);
+  }
+
+  /** Rejects a component id whose file's project is not owned by this store's org (IDOR guard). */
+  private async assertComponentOwned(componentId: string): Promise<void> {
+    const component = await this.db.prisma.component.findFirst({
+      where: { id: componentId, file: { project: { orgId: this.orgId } } },
+      select: { id: true },
+    });
+    if (!component) throw new Error(`Component "${componentId}" not found`);
+  }
+
+  /** Rejects skill/agent/workflow ids not owned by this org (built-in skills are allowed). */
+  private async assertIntelligenceOwned(att: IntelligenceAttachment): Promise<void> {
+    if (att.skillId) {
+      const skill = await this.db.prisma.skill.findFirst({
+        where: { id: att.skillId, OR: [{ orgId: this.orgId }, { builtIn: true }] },
+        select: { id: true },
+      });
+      if (!skill) throw new Error(`Skill "${att.skillId}" not found`);
+    }
+    if (att.agentId) {
+      const agent = await this.db.prisma.agent.findFirst({
+        where: { id: att.agentId, orgId: this.orgId },
+        select: { id: true },
+      });
+      if (!agent) throw new Error(`Agent "${att.agentId}" not found`);
+    }
+    if (att.workflowId) {
+      const workflow = await this.db.prisma.workflow.findFirst({
+        where: { id: att.workflowId, orgId: this.orgId },
+        select: { id: true },
+      });
+      if (!workflow) throw new Error(`Workflow "${att.workflowId}" not found`);
+    }
+  }
+
   async getComponent(fileId: string, nodeId: string): Promise<ComponentRecord | null> {
+    await this.assertFileOwned(fileId);
     const component = await this.db.components.findByNode(fileId, nodeId);
     if (!component) return null;
     return { id: component.id, name: component.name, metadata: component.metadata };
@@ -99,6 +143,7 @@ export class PgIntelligenceStore implements IntelligenceStore {
     nodeId: string,
     data: { name: string; description?: string; metadata?: unknown },
   ): Promise<{ id: string }> {
+    await this.assertFileOwned(fileId);
     const component = await this.db.components.upsertByNode({
       fileId,
       nodeId,
@@ -110,6 +155,8 @@ export class PgIntelligenceStore implements IntelligenceStore {
   }
 
   async attachIntelligence(componentId: string, att: IntelligenceAttachment): Promise<void> {
+    await this.assertComponentOwned(componentId);
+    await this.assertIntelligenceOwned(att);
     await this.db.components.createAttachment({
       componentId,
       skillId: att.skillId,
@@ -120,6 +167,7 @@ export class PgIntelligenceStore implements IntelligenceStore {
   }
 
   async listAttachments(componentId: string): Promise<IntelligenceAttachment[]> {
+    await this.assertComponentOwned(componentId);
     const attachments = await this.db.components.listAttachments(componentId);
     return attachments.map((attachment) => ({
       skillId: attachment.skillId ?? undefined,
@@ -134,6 +182,7 @@ export class PgIntelligenceStore implements IntelligenceStore {
     framework: string,
     code: string,
   ): Promise<{ version: number }> {
+    await this.assertComponentOwned(componentId);
     const { createHash } = await import('node:crypto');
     const hash = createHash('sha256').update(code).digest('hex');
     const saved = await this.db.components.saveGeneratedCode({
@@ -146,6 +195,7 @@ export class PgIntelligenceStore implements IntelligenceStore {
   }
 
   async getGeneratedCode(componentId: string, framework?: string): Promise<GeneratedCodeRecord[]> {
+    await this.assertComponentOwned(componentId);
     const rows = await this.db.components.listGeneratedCode(
       componentId,
       framework as CodeFramework | undefined,
@@ -165,5 +215,32 @@ export class PgIntelligenceStore implements IntelligenceStore {
       take: 20,
     });
     return rows.map((row) => ({ componentId: row.id, name: row.name, score: 1 }));
+  }
+}
+
+/** Wraps an IntelligenceStore so every mutating method throws — for read-only API keys. */
+export class ReadOnlyIntelligenceStore implements IntelligenceStore {
+  constructor(private readonly inner: IntelligenceStore) {}
+
+  listSkills = (): Promise<SkillSpec[]> => this.inner.listSkills();
+  listAgents = (): Promise<AgentSpec[]> => this.inner.listAgents();
+  listWorkflows = (): Promise<WorkflowSpec[]> => this.inner.listWorkflows();
+  getComponent = (fileId: string, nodeId: string): Promise<ComponentRecord | null> =>
+    this.inner.getComponent(fileId, nodeId);
+  listAttachments = (componentId: string): Promise<IntelligenceAttachment[]> =>
+    this.inner.listAttachments(componentId);
+  getGeneratedCode = (componentId: string, framework?: string): Promise<GeneratedCodeRecord[]> =>
+    this.inner.getGeneratedCode(componentId, framework);
+  searchComponents = (queryText: string): Promise<ComponentSearchResult[]> =>
+    this.inner.searchComponents(queryText);
+
+  upsertComponent(): Promise<{ id: string }> {
+    throw new Error('read-only API key');
+  }
+  attachIntelligence(): Promise<void> {
+    throw new Error('read-only API key');
+  }
+  saveGeneratedCode(): Promise<{ version: number }> {
+    throw new Error('read-only API key');
   }
 }

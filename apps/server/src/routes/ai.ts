@@ -47,7 +47,17 @@ export async function aiRoutes(app: FastifyInstance): Promise<void> {
       const orgId = request.orgId!;
 
       const workflow = await app.db.workflows.findById(workflowId);
-      if (!workflow) throw new HttpError(404, 'NOT_FOUND', 'Workflow not found');
+      // Workflow must belong to the org resolved from the request (IDOR guard).
+      if (!workflow || workflow.orgId !== orgId) {
+        throw new HttpError(404, 'NOT_FOUND', 'Workflow not found');
+      }
+
+      // The target file must also belong to this org — the workflow reads its design.
+      const file = await app.db.prisma.file.findFirst({
+        where: { id: body.fileId, deletedAt: null, project: { orgId } },
+        select: { id: true },
+      });
+      if (!file) throw new HttpError(404, 'NOT_FOUND', 'File not found');
 
       const definition = (workflow.definition as WorkflowDefinitionStep[] | null) ?? [];
       const steps: WorkflowSpec['steps'] = [];
@@ -55,7 +65,10 @@ export async function aiRoutes(app: FastifyInstance): Promise<void> {
 
       for (const step of definition) {
         const agent = await app.db.agents.findById(step.agentId);
-        if (!agent) throw new HttpError(404, 'NOT_FOUND', `Agent "${step.agentId}" not found`);
+        // Each agent must belong to this org — prevents spending our provider key on foreign agents.
+        if (!agent || agent.orgId !== orgId) {
+          throw new HttpError(404, 'NOT_FOUND', `Agent "${step.agentId}" not found`);
+        }
 
         const providerRow = await app.db.aiProviders.findForOrg(orgId, agent.provider);
         if (!providerRow || !providerRow.enabled) {

@@ -6,7 +6,8 @@ services:
     restart: unless-stopped
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-openmake}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-openmake_dev}
+      # No default — compose fails if unset, forcing a real secret (see .env.example).
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
       POSTGRES_DB: ${POSTGRES_DB:-openmake}
     ports:
       - '${POSTGRES_PORT:-5432}:5432'
@@ -35,7 +36,8 @@ services:
     command: server /data --console-address ':9001'
     environment:
       MINIO_ROOT_USER: ${MINIO_ROOT_USER:-openmake}
-      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-openmake_dev_secret}
+      # No default — compose fails if unset, forcing a real secret (see .env.example).
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:?set MINIO_ROOT_PASSWORD in .env}
     ports:
       - '${MINIO_PORT:-9000}:9000'
       - '${MINIO_CONSOLE_PORT:-9001}:9001'

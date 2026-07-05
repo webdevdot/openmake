@@ -12,6 +12,10 @@ RUN pnpm install --frozen-lockfile
 # install scripts are globally blocked (supply-chain hardening); generate Prisma client explicitly
 RUN pnpm --filter @openmake/database db:generate
 
+# Run as the built-in non-root user (node) — never as root.
+RUN chown -R node:node /app
+USER node
+
 ENV NODE_ENV=production
 EXPOSE 8080
 CMD ["pnpm", "--filter", "@openmake/server", "start"]

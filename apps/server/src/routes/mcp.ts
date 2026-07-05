@@ -3,7 +3,10 @@ import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/
 import { createOpenmakeMcpServer } from '@openmake/mcp';
 import type { FastifyInstance, FastifyReply } from 'fastify';
 import { PgDocumentStore, ReadOnlyDocumentStore } from '../adapters/pg-document-store.js';
-import { PgIntelligenceStore } from '../adapters/pg-intelligence-store.js';
+import {
+  PgIntelligenceStore,
+  ReadOnlyIntelligenceStore,
+} from '../adapters/pg-intelligence-store.js';
 
 const READ_SCOPE = 'mcp:read';
 const WRITE_SCOPE = 'mcp:write';
@@ -38,11 +41,13 @@ export async function mcpRoutes(app: FastifyInstance): Promise<void> {
       return;
     }
 
+    const canWrite = key.scopes.includes(WRITE_SCOPE);
     const documentStoreImpl = new PgDocumentStore(app.db, key.orgId);
-    const documents = key.scopes.includes(WRITE_SCOPE)
-      ? documentStoreImpl
-      : new ReadOnlyDocumentStore(documentStoreImpl);
-    const intelligence = new PgIntelligenceStore(app.db, key.orgId);
+    const documents = canWrite ? documentStoreImpl : new ReadOnlyDocumentStore(documentStoreImpl);
+    const intelligenceImpl = new PgIntelligenceStore(app.db, key.orgId);
+    const intelligence = canWrite
+      ? intelligenceImpl
+      : new ReadOnlyIntelligenceStore(intelligenceImpl);
 
     const server = createOpenmakeMcpServer({ documents, intelligence });
     const transport = new StreamableHTTPServerTransport({ sessionIdGenerator: undefined });

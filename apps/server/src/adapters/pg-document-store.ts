@@ -18,11 +18,22 @@ export class PgDocumentStore implements DocumentStore {
     return files.map((file) => ({ id: file.id, name: file.name, projectId: file.projectId }));
   }
 
+  /** Rejects any file id that is not owned by this store's org (cross-tenant IDOR guard). */
+  private async assertOwned(fileId: string): Promise<void> {
+    const file = await this.db.prisma.file.findFirst({
+      where: { id: fileId, deletedAt: null, project: { orgId: this.orgId } },
+      select: { id: true },
+    });
+    if (!file) throw new Error(`File "${fileId}" not found`);
+  }
+
   async loadDocument(fileId: string): Promise<OpenDoc> {
+    await this.assertOwned(fileId);
     return loadOpenDoc(this.db, fileId);
   }
 
   async saveDocument(fileId: string, doc: OpenDoc): Promise<void> {
+    await this.assertOwned(fileId);
     await persistFullState(this.db, fileId, doc.ydoc);
   }
 }

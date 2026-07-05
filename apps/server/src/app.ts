@@ -77,7 +77,8 @@ export async function buildApp(config: Config, opts: BuildAppOptions = {}): Prom
   });
   await app.register(cookie);
   await app.register(rateLimit, { max: 200, timeWindow: '1 minute' });
-  await app.register(websocket);
+  // Cap WS frame size (DoS guard) — the hub also rejects oversized sync frames.
+  await app.register(websocket, { options: { maxPayload: 4 * 1024 * 1024 } });
 
   registerErrorHandler(app);
   registerAuthPlugin(app);

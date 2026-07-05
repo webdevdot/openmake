@@ -84,12 +84,15 @@ export async function syncRoutes(app: FastifyInstance): Promise<void> {
       return;
     }
 
-    const hasAccess = await app.db.orgs.hasAtLeastRole(orgId, userId, 'VIEWER');
-    if (!hasAccess) {
+    const canView = await app.db.orgs.hasAtLeastRole(orgId, userId, 'VIEWER');
+    if (!canView) {
       socket.close(POLICY_VIOLATION_CODE, 'forbidden');
       return;
     }
+    // VIEWERs get a live read-only connection (updates + awareness, no writes);
+    // only EDITOR+ may mutate the document over the socket — matching REST.
+    const canEdit = await app.db.orgs.hasAtLeastRole(orgId, userId, 'EDITOR');
 
-    await app.docSyncHub.handleConnection(wrapSocket(socket), fileId);
+    await app.docSyncHub.handleConnection(wrapSocket(socket), fileId, { readOnly: !canEdit });
   });
 }
