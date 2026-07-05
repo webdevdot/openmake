@@ -56,6 +56,20 @@ export async function buildApp(config: Config, opts: BuildAppOptions = {}): Prom
     await docSyncHub.destroy();
   });
 
+  // Tolerate empty JSON bodies (POST /auth/refresh, /auth/logout send none);
+  // Fastify's default parser rejects them with FST_ERR_CTP_EMPTY_JSON_BODY.
+  app.addContentTypeParser('application/json', { parseAs: 'string' }, (_req, body, done) => {
+    if (body === '' || body === undefined) {
+      done(null, {});
+      return;
+    }
+    try {
+      done(null, JSON.parse(body as string));
+    } catch (err) {
+      done(err as Error, undefined);
+    }
+  });
+
   await app.register(helmet);
   await app.register(cors, {
     origin: config.corsOrigins.length > 0 ? config.corsOrigins : false,

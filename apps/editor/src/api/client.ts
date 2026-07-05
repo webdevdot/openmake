@@ -14,7 +14,7 @@ export class ApiError extends Error {
   }
 }
 
-const API_BASE = import.meta.env.VITE_API_URL ?? 'http://localhost:8080';
+const API_BASE = `${import.meta.env.VITE_API_URL ?? 'http://localhost:8080'}/api/v1`;
 
 export type AccessTokenGetter = () => string | null;
 export type AccessTokenSetter = (token: string | null) => void;
@@ -65,7 +65,7 @@ async function doFetch(path: string, opts: RequestOptions): Promise<Response> {
   });
 }
 
-async function refreshAccessToken(): Promise<string | null> {
+export async function refreshAccessToken(): Promise<string | null> {
   const res = await fetch(`${API_BASE}/auth/refresh`, {
     method: 'POST',
     credentials: 'include',

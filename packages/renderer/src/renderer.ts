@@ -42,6 +42,7 @@ class CanvasKitRenderer implements TestableRenderer {
     private readonly ck: CanvasKit,
     private surface: Surface,
     private readonly isOffscreen: boolean,
+    private readonly canvasEl?: HTMLCanvasElement,
   ) {
     this.width = surface.width();
     this.height = surface.height();
@@ -250,9 +251,18 @@ class CanvasKitRenderer implements TestableRenderer {
     this.width = width;
     this.height = height;
     this.dpr = dpr;
-    if (!this.isOffscreen) {
-      // Browser surfaces are recreated by the caller (canvas element resize);
-      // for the offscreen/raster path we recreate the backing surface here.
+    if (!this.isOffscreen && this.canvasEl) {
+      // Assigning canvas.width/height resets the WebGL drawing buffer and
+      // orphans the previous Surface — the renderer must own recreation.
+      this.canvasEl.width = Math.max(1, Math.round(width * dpr));
+      this.canvasEl.height = Math.max(1, Math.round(height * dpr));
+      this.surface.delete();
+      this.surface =
+        this.ck.MakeWebGLCanvasSurface(this.canvasEl, undefined, { preserveDrawingBuffer: 1 }) ??
+        this.ck.MakeSurface(this.canvasEl.width, this.canvasEl.height) ??
+        (() => {
+          throw new Error('Failed to recreate CanvasKit surface on resize');
+        })();
     }
   }
 
@@ -357,7 +367,11 @@ export async function createCanvasKitRenderer(
   let surface: Surface | null;
   let isOffscreen: boolean;
   if (target.canvas) {
-    surface = ck.MakeWebGLCanvasSurface(target.canvas) ?? ck.MakeSurface(target.canvas.width, target.canvas.height);
+    // preserveDrawingBuffer keeps the framebuffer readable after compositing —
+    // required for reliable canvas screenshots/readbacks (exports, E2E checks).
+    surface =
+      ck.MakeWebGLCanvasSurface(target.canvas, undefined, { preserveDrawingBuffer: 1 }) ??
+      ck.MakeSurface(target.canvas.width, target.canvas.height);
     isOffscreen = false;
   } else {
     const width = 800;
@@ -367,5 +381,5 @@ export async function createCanvasKitRenderer(
   }
   if (!surface) throw new Error('Failed to create CanvasKit surface');
 
-  return new CanvasKitRenderer(ck, surface, isOffscreen);
+  return new CanvasKitRenderer(ck, surface, isOffscreen, target.canvas);
 }

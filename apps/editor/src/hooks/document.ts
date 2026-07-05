@@ -2,10 +2,19 @@ import { useCallback, useSyncExternalStore } from 'react';
 import type { OpenDoc } from '@openmake/core';
 import type { SceneNode } from '@openmake/shared';
 
-/** Re-renders whenever the document version changes (any mutation, anywhere). */
-export function useDocVersion(doc: OpenDoc): number {
-  const subscribe = useCallback((onChange: () => void) => doc.subscribe(onChange), [doc]);
-  const getSnapshot = useCallback(() => doc.version, [doc]);
+const noopSubscribe = () => () => {};
+
+/**
+ * Re-renders whenever the document version changes (any mutation, anywhere).
+ * Null-tolerant: pages render hooks before the collab session has produced a
+ * doc, so `null` simply means "no store yet" (version -1, no subscription).
+ */
+export function useDocVersion(doc: OpenDoc | null | undefined): number {
+  const subscribe = useCallback(
+    (onChange: () => void) => (doc ? doc.subscribe(onChange) : noopSubscribe()),
+    [doc],
+  );
+  const getSnapshot = useCallback(() => (doc ? doc.version : -1), [doc]);
   return useSyncExternalStore(subscribe, getSnapshot);
 }
 

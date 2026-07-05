@@ -17,7 +17,11 @@ vi.mock('@openmake/renderer', () => ({
   }),
   buildRenderScene: vi.fn().mockReturnValue({ nodes: {}, rootIds: [] }),
   registerFont: vi.fn(),
+  loadCanvasKit: vi.fn().mockResolvedValue({}),
 }));
+
+// canvaskit-init imports the .wasm?url asset, which vitest can't resolve.
+vi.mock('../../canvas/canvaskit-init.js', () => ({ canvasKitReady: Promise.resolve({}) }));
 
 // Font loading does a real fetch() of the bundled TTF assets, which has no
 // place in a unit test environment (happy-dom has no asset server running).

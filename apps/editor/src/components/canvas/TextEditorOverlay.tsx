@@ -28,7 +28,12 @@ export function TextEditorOverlay({ doc, nodeId, cameraRef, onCommit }: TextEdit
   const topLeft = worldToScreen(cameraRef.current, { x: bounds.x, y: bounds.y });
 
   const commit = () => {
-    doc.updateNode(nodeId, { characters: value });
+    // Text layers are named by their content until explicitly renamed.
+    const props: Record<string, unknown> = { characters: value };
+    if (node.name === 'Text' || node.name === node.characters) {
+      props.name = value.trim() === '' ? 'Text' : value.split('\n')[0]!.slice(0, 60);
+    }
+    doc.updateNode(nodeId, props);
     doc.commitUndoGroup();
     onCommit();
   };

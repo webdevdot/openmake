@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { createCanvasKitRenderer, type Renderer } from '@openmake/renderer';
+import '../../canvas/canvaskit-init.js';
 import { getWorldBounds, hitTest, type OpenDoc } from '@openmake/core';
 import { useToolStore } from '../../store/tool.js';
 import { useSelectionStore } from '../../store/selection.js';
@@ -26,6 +27,7 @@ export function Canvas({ doc, pageId, onCursorMoveWorld }: CanvasProps) {
   const loopRef = useRef<RenderLoop | null>(null);
   const cameraRef = useRef<Camera>(useCameraStore.getState().camera);
   const [ready, setReady] = useState(false);
+  const [initError, setInitError] = useState<string | null>(null);
 
   const tool = useToolStore((s) => s.tool);
   const setTool = useToolStore((s) => s.setTool);
@@ -35,6 +37,7 @@ export function Canvas({ doc, pageId, onCursorMoveWorld }: CanvasProps) {
   const [marquee, setMarquee] = useState<Rect | null>(null);
   const [spaceHeld, setSpaceHeld] = useState(false);
   const [textEditorNodeId, setTextEditorNodeId] = useState<string | null>(null);
+  const pendingTextRef = useRef<{ x: number; y: number } | null>(null);
 
   const createShape = useCreateShapeGesture({ doc, pageId, cameraRef, onCreated: () => setTool('select') });
   const selectGesture = useSelectGesture({ doc, pageId, cameraRef });
@@ -46,23 +49,27 @@ export function Canvas({ doc, pageId, onCursorMoveWorld }: CanvasProps) {
     if (!canvas) return;
 
     void (async () => {
-      await loadEditorFonts();
-      const renderer = await createCanvasKitRenderer({ canvas });
-      if (disposed) {
-        renderer.dispose();
-        return;
-      }
-      rendererRef.current = renderer;
-      const container = containerRef.current;
-      const dpr = window.devicePixelRatio || 1;
-      const width = container?.clientWidth ?? 800;
-      const height = container?.clientHeight ?? 600;
-      canvas.width = Math.round(width * dpr);
-      canvas.height = Math.round(height * dpr);
-      renderer.resize(width, height, dpr);
+      try {
+        await loadEditorFonts();
+        const renderer = await createCanvasKitRenderer({ canvas });
+        if (disposed) {
+          renderer.dispose();
+          return;
+        }
+        rendererRef.current = renderer;
+        const container = containerRef.current;
+        const dpr = window.devicePixelRatio || 1;
+        const width = container?.clientWidth ?? 800;
+        const height = container?.clientHeight ?? 600;
+        // resize() owns the canvas buffer + WebGL surface recreation.
+        renderer.resize(width, height, dpr);
 
-      loopRef.current = new RenderLoop(renderer, doc, () => pageId, () => cameraRef.current);
-      setReady(true);
+        loopRef.current = new RenderLoop(renderer, doc, () => pageId, () => cameraRef.current);
+        setReady(true);
+      } catch (err) {
+        console.error('Canvas renderer failed to initialize', err);
+        if (!disposed) setInitError(err instanceof Error ? err.message : String(err));
+      }
     })();
 
     return () => {
@@ -84,11 +91,8 @@ export function Canvas({ doc, pageId, onCursorMoveWorld }: CanvasProps) {
       const renderer = rendererRef.current;
       if (!renderer) return;
       const dpr = window.devicePixelRatio || 1;
-      const width = container.clientWidth;
-      const height = container.clientHeight;
-      canvas.width = Math.round(width * dpr);
-      canvas.height = Math.round(height * dpr);
-      renderer.resize(width, height, dpr);
+      // resize() owns the canvas buffer + WebGL surface recreation.
+      renderer.resize(container.clientWidth, container.clientHeight, dpr);
       loopRef.current?.markDirty();
     });
     observer.observe(container);
@@ -150,9 +154,9 @@ export function Canvas({ doc, pageId, onCursorMoveWorld }: CanvasProps) {
     }
 
     if (tool === 'text') {
-      const world = screenToWorld(cameraRef.current, screen);
-      const id = createShape.createTextAt(world);
-      setTextEditorNodeId(id);
+      // Create on pointerUP (click completion): mounting + focusing the text
+      // editor mid-click would let the click's trailing events blur it.
+      pendingTextRef.current = screenToWorld(cameraRef.current, screen);
       return;
     }
 
@@ -191,6 +195,14 @@ export function Canvas({ doc, pageId, onCursorMoveWorld }: CanvasProps) {
       setCamera(cameraRef.current);
       return;
     }
+    if (pendingTextRef.current) {
+      const id = createShape.createTextAt(pendingTextRef.current);
+      pendingTextRef.current = null;
+      setTextEditorNodeId(id);
+      setTool('select');
+      doc.commitUndoGroup();
+      return;
+    }
     if (tool === 'select') {
       selectGesture.onPointerUp(e, { setMarquee, marqueeHits: (rect, candidates) => marqueeHits(rect, candidates) });
       return;
@@ -209,6 +221,14 @@ export function Canvas({ doc, pageId, onCursorMoveWorld }: CanvasProps) {
 
   return (
     <div ref={containerRef} className="relative flex-1 overflow-hidden bg-canvas-app" data-testid="canvas-container">
+      {initError && (
+        <div
+          data-testid="canvas-init-error"
+          className="absolute inset-x-0 top-0 z-20 bg-red-600 px-3 py-2 text-xs text-white"
+        >
+          Canvas failed to initialize: {initError}
+        </div>
+      )}
       <canvas
         ref={canvasRef}
         className={cursorClass}

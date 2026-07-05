@@ -3,6 +3,7 @@ import { useParams } from 'react-router-dom';
 import { initLayout } from '@openmake/layout';
 import { createCanvasKitRenderer, buildRenderScene, exportSVG } from '@openmake/renderer';
 import { useCollab } from '../hooks/useCollab.js';
+import { useDocVersion } from '../hooks/document.js';
 import { useAutoLayout } from '../hooks/useAutoLayout.js';
 import { useAwareness } from '../hooks/useAwareness.js';
 import { useSelectionStore } from '../store/selection.js';
@@ -29,13 +30,16 @@ export function EditorPage() {
     void loadEditorFonts();
   }, []);
 
+  // Re-evaluated on every doc change: when opening an existing file the pages
+  // only exist after the first sync message lands, not when the session mounts.
+  const docVersion = useDocVersion(session?.doc);
   useEffect(() => {
     if (session && !activePageId) {
       setActivePageId(session.doc.getPages()[0] ?? null);
     }
-  }, [session, activePageId]);
+  }, [session, activePageId, docVersion]);
 
-  useAutoLayout(session?.doc as never, session && layoutReady ? activePageId : null);
+  useAutoLayout(session?.doc, session && layoutReady ? activePageId : null);
   const { onPointerMoveWorld } = useAwareness(session?.client ?? null);
 
   useEffect(() => {

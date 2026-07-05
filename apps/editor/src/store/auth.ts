@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { configureApiClient } from '../api/client.js';
+import { configureApiClient, refreshAccessToken } from '../api/client.js';
 import { authApi } from '../api/endpoints.js';
 import type { User } from '../api/types.js';
 
@@ -35,9 +35,16 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   },
 
   restoreSession: async () => {
+    // After a full page load the access token only lives in the httpOnly
+    // refresh cookie — exchange it before deciding we're signed out.
     if (!get().accessToken) {
-      set({ status: 'unauthenticated' });
-      return;
+      set({ status: 'loading' });
+      const token = await refreshAccessToken().catch(() => null);
+      if (!token) {
+        set({ status: 'unauthenticated' });
+        return;
+      }
+      set({ accessToken: token });
     }
     try {
       const user = await authApi.me();
