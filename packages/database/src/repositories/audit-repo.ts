@@ -1,5 +1,5 @@
-import type { Prisma } from '../../generated/client/index.js';
-import type { AuditLog, PrismaClient } from '../../generated/client/index.js';
+import type { Prisma } from '../../generated/client/client.js';
+import type { AuditLog, PrismaClient } from '../../generated/client/client.js';
 
 export interface AppendAuditInput {
   orgId?: string;

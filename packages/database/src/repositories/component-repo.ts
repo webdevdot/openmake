@@ -1,11 +1,11 @@
-import type { Prisma } from '../../generated/client/index.js';
+import type { Prisma } from '../../generated/client/client.js';
 import type {
   CodeFramework,
   Component,
   ComponentAttachment,
   GeneratedCode,
   PrismaClient,
-} from '../../generated/client/index.js';
+} from '../../generated/client/client.js';
 
 export interface UpsertComponentInput {
   fileId: string;

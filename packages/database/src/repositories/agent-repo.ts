@@ -1,5 +1,5 @@
-import type { Prisma } from '../../generated/client/index.js';
-import type { Agent, AiProviderKind, PrismaClient } from '../../generated/client/index.js';
+import type { Prisma } from '../../generated/client/client.js';
+import type { Agent, AiProviderKind, PrismaClient } from '../../generated/client/client.js';
 
 export interface CreateAgentInput {
   orgId?: string;

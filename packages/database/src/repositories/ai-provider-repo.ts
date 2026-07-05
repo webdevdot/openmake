@@ -1,4 +1,4 @@
-import type { AiProvider, AiProviderKind, PrismaClient } from '../../generated/client/index.js';
+import type { AiProvider, AiProviderKind, PrismaClient } from '../../generated/client/client.js';
 
 export interface UpsertAiProviderInput {
   orgId: string;

@@ -1,4 +1,4 @@
-import type { Comment, PrismaClient } from '../../generated/client/index.js';
+import type { Comment, PrismaClient } from '../../generated/client/client.js';
 
 export interface CreateCommentInput {
   fileId: string;

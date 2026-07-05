@@ -1,3 +1,4 @@
+import './load-env.js';
 import { createPrismaClient } from './client.js';
 
 const prisma = createPrismaClient();

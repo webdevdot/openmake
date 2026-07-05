@@ -1,36 +1,40 @@
-import type { DocSnapshot, DocUpdate, PrismaClient } from '../../generated/client/index.js';
+import type { DocSnapshot, DocUpdate, PrismaClient } from '../../generated/client/client.js';
 
 export class DocRepo {
   constructor(private readonly prisma: PrismaClient) {}
 
   /**
    * Appends a Yjs update, assigning it the next sequence number for the file.
-   * Concurrent callers each get a distinct, monotonically increasing seq —
-   * the seq is computed and the row inserted inside one serializable-ish
-   * transaction retry loop to survive unique-constraint races.
+   * Concurrent callers each get a distinct, monotonically increasing seq.
+   * The read-then-insert runs inside a Serializable transaction so Postgres
+   * itself detects conflicting concurrent appends and aborts one side,
+   * which we retry with backoff until it lands.
    */
   async appendUpdate(fileId: string, update: Uint8Array): Promise<DocUpdate> {
     const buf = Buffer.from(update);
-    for (let attempt = 0; attempt < 5; attempt++) {
+    const maxAttempts = 20;
+    for (let attempt = 0; attempt < maxAttempts; attempt++) {
       try {
-        return await this.prisma.$transaction(async (tx) => {
-          const last = await tx.docUpdate.findFirst({
-            where: { fileId },
-            orderBy: { seq: 'desc' },
-            select: { seq: true },
-          });
-          const nextSeq = (last?.seq ?? 0) + 1;
-          return tx.docUpdate.create({
-            data: { fileId, seq: nextSeq, update: buf },
-          });
-        });
+        return await this.prisma.$transaction(
+          async (tx) => {
+            const last = await tx.docUpdate.findFirst({
+              where: { fileId },
+              orderBy: { seq: 'desc' },
+              select: { seq: true },
+            });
+            const nextSeq = (last?.seq ?? 0) + 1;
+            return tx.docUpdate.create({
+              data: { fileId, seq: nextSeq, update: buf },
+            });
+          },
+          { isolationLevel: 'Serializable' },
+        );
       } catch (err) {
-        const isUniqueConflict =
-          typeof err === 'object' &&
-          err !== null &&
-          'code' in err &&
-          (err as { code?: string }).code === 'P2002';
-        if (!isUniqueConflict || attempt === 4) throw err;
+        const code = (err as { code?: string } | null)?.code;
+        // P2002: unique constraint race; P2034: serialization/deadlock conflict.
+        const isRetryable = code === 'P2002' || code === 'P2034';
+        if (!isRetryable || attempt === maxAttempts - 1) throw err;
+        await new Promise((resolve) => setTimeout(resolve, Math.random() * 10 * (attempt + 1)));
       }
     }
     throw new Error('appendUpdate: exhausted retries');

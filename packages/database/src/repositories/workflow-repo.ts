@@ -1,5 +1,5 @@
-import type { Prisma } from '../../generated/client/index.js';
-import type { PrismaClient, Workflow } from '../../generated/client/index.js';
+import type { Prisma } from '../../generated/client/client.js';
+import type { PrismaClient, Workflow } from '../../generated/client/client.js';
 
 export interface CreateWorkflowInput {
   orgId?: string;

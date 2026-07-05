@@ -1,5 +1,5 @@
 export { createPrismaClient } from './client.js';
-export * from '../generated/client/index.js';
+export * from '../generated/client/client.js';
 
 export { Database } from './database.js';
 

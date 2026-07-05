@@ -1,4 +1,4 @@
-import type { File, PrismaClient } from '../../generated/client/index.js';
+import type { File, PrismaClient } from '../../generated/client/client.js';
 
 export interface CreateFileInput {
   projectId: string;

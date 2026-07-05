@@ -1,4 +1,4 @@
-import type { ApiKey, PrismaClient } from '../../generated/client/index.js';
+import type { ApiKey, PrismaClient } from '../../generated/client/client.js';
 
 export interface CreateApiKeyInput {
   orgId: string;

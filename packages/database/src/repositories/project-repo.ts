@@ -1,4 +1,4 @@
-import type { PrismaClient, Project } from '../../generated/client/index.js';
+import type { PrismaClient, Project } from '../../generated/client/client.js';
 
 export interface CreateProjectInput {
   orgId: string;

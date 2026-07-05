@@ -1,5 +1,5 @@
-import type { Prisma } from '../../generated/client/index.js';
-import type { PrismaClient, Skill } from '../../generated/client/index.js';
+import type { Prisma } from '../../generated/client/client.js';
+import type { PrismaClient, Skill } from '../../generated/client/client.js';
 
 export interface CreateSkillInput {
   orgId?: string;
