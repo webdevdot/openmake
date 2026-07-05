@@ -1,0 +1,26 @@
+{
+  "name": "@openmake/mcp",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./stdio": "./src/stdio.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "1.29.0",
+    "@openmake/ai": "workspace:*",
+    "@openmake/codegen": "workspace:*",
+    "@openmake/core": "workspace:*",
+    "@openmake/shared": "workspace:*",
+    "zod": "4.4.3"
+  },
+  "devDependencies": {
+    "@types/node": "24.10.1",
+    "vitest": "4.1.9"
+  }
+}
