@@ -1,0 +1,27 @@
+{
+  "name": "@openmake/ai",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@ai-sdk/anthropic": "4.0.0",
+    "@ai-sdk/google": "4.0.2",
+    "@ai-sdk/openai": "4.0.2",
+    "@ai-sdk/openai-compatible": "3.0.1",
+    "@openmake/core": "workspace:*",
+    "@openmake/shared": "workspace:*",
+    "ai": "7.0.4",
+    "zod": "4.4.3"
+  },
+  "devDependencies": {
+    "@types/node": "24.10.1",
+    "vitest": "4.1.9"
+  }
+}
