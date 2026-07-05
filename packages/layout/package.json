@@ -1,0 +1,20 @@
+{
+  "name": "@openmake/layout",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@openmake/shared": "workspace:*",
+    "yoga-layout": "3.2.1"
+  },
+  "devDependencies": {
+    "vitest": "4.1.9"
+  }
+}
