@@ -203,4 +203,51 @@ describe('DocSyncHub', () => {
     expect(hub.connectionCount(docId)).toBe(2);
     await hub.destroy();
   });
+
+  it('a read-only connection cannot mutate the doc but can still read it', async () => {
+    const persistence = new MemoryPersistence();
+    const hub = new DocSyncHub(persistence);
+    const docId = 'doc-readonly';
+
+    const syncProtocol = await import('y-protocols/sync');
+    const { MESSAGE_SYNC, createMessage, toBuffer } = await import('../src/protocol.js');
+
+    const [, roServer] = linkSockets();
+    const roSendSpy = vi.spyOn(roServer, 'send');
+    await hub.handleConnection(roServer, docId, { readOnly: true });
+
+    const hubDoc = await hub.getDoc(docId);
+    const before = Y.encodeStateAsUpdate(hubDoc);
+
+    // Read-only client sends an Update (a write) — the hub must NOT apply it.
+    const writer = OpenDoc.create({ name: 'malicious write' });
+    const writerPage = writer.getPages()[0]!;
+    writer.createNode({ type: 'RECTANGLE', parentId: writerPage, name: 'should-not-persist' });
+    const writeEncoder = createMessage(MESSAGE_SYNC);
+    syncProtocol.writeUpdate(writeEncoder, Y.encodeStateAsUpdate(writer.ydoc));
+    roServer.emit('message', toBuffer(writeEncoder));
+
+    await new Promise((resolve) => setTimeout(resolve, 30));
+    // The canonical doc is byte-for-byte unchanged, and nothing was persisted.
+    expect(Y.encodeStateAsUpdate(hubDoc)).toEqual(before);
+    const loaded = await persistence.load(docId);
+    expect(loaded.updates).toHaveLength(0);
+
+    // A read (SyncStep1) from the same read-only client is still answered.
+    roSendSpy.mockClear();
+    const readEncoder = createMessage(MESSAGE_SYNC);
+    syncProtocol.writeSyncStep1(readEncoder, hubDoc);
+    roServer.emit('message', toBuffer(readEncoder));
+    await waitFor(() => {
+      expect(roSendSpy).toHaveBeenCalled();
+    });
+    // The reply is a SyncStep2 (message type 1 within the sync channel).
+    const reply = roSendSpy.mock.calls.at(-1)![0] as Uint8Array;
+    const decoding = await import('lib0/decoding');
+    const decoder = decoding.createDecoder(reply);
+    expect(decoding.readVarUint(decoder)).toBe(MESSAGE_SYNC);
+    expect(decoding.readVarUint(decoder)).toBe(syncProtocol.messageYjsSyncStep2);
+
+    await hub.destroy();
+  });
 });

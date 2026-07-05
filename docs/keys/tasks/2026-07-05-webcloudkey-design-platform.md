@@ -159,10 +159,47 @@ Findings:
   in-memory token storage, safe error handler, CORS allowlist
 - ✅ 6 cross-tenant IDOR regression tests added (server suite 23 green)
 
-## Review
+## Code Review
 
-(pending)
+Status: APPROVED
+
+Full NEW_PROJECT review via keys:reviewer agent, focused on the security-fix
+commit (highest-risk newest code) + editor↔server contract.
+
+Notes:
+- ✅ IDOR fixes complete for every verb (read + write paths) — no verb missed
+- ✅ WS read-only enforcement unbypassable (server-derived, client can't spoof)
+- ✅ frame-size cap correctly layered (ws plugin + hub re-check)
+- ✅ ADMIN→OWNER escalation closed on both invite + promote
+- ✅ error handler leaks nothing; MCP errors uniform "not found" (no existence oracle)
+- ✅ editor↔server contract consistent (envelopes, /api/v1, 401-refresh, WS token)
+- ✅ no dead code / naming issues introduced; list repos have no N+1
+- 🔴→✅ BLOCKING-adjacent gap (#8): WS read-only enforcement had zero test
+  coverage — **added** a collab regression test (read-only socket cannot mutate
+  the doc, nothing persisted, reads still answered). collab suite now 12 green.
+- 🟡 SUGGESTION (logged, non-blocking, body-size-bounded): batch the per-id
+  ownership `findFirst` loops in agents/components into one `findMany`
+- 🟡 SUGGESTION (logged): factor the "assert entity belongs to org or 404"
+  pattern into one shared helper (currently per-route)
+- 🟡 SUGGESTION (logged): add list-endpoint pagination (pre-existing, not a regression)
 
 ## Verification
 
-(pending — must include Playwright live check of the self-hosted app)
+Status: PASSED (observed evidence)
+
+- `pnpm typecheck` → 0 errors across all 13 packages
+- `pnpm test` → **254 tests passed, 0 failed** (exit 0):
+  database 23 · figma-importer 4 · layout 17 · codegen 15 · core 22 ·
+  plugin-sdk 3 · ai 28 · cli 5 · renderer 19 · collab 11 · mcp 17 ·
+  editor 67 · server 23
+- `pnpm --filter @openmake/editor build` → exit 0 (Vite prod build incl. WASM + fonts)
+- `pnpm lint` → No issues found
+- `pnpm audit --audit-level=high` → No known vulnerabilities
+- Server boots, `GET /healthz` → `{status:'ok', db:'up'}`
+- **Playwright deep check against the running self-hosted stack (per user
+  requirement) — 3/3 specs green**: full journey (register → create file →
+  draw rect → inspect → change fill → add text → undo/redo → SVG export →
+  logout → login → document persisted), two-browser real-time convergence,
+  auth guard redirect. Verified the CanvasKit canvas actually renders
+  (framebuffer pixel probes) and the Postgres-backed Yjs persistence survives
+  a relogin.
