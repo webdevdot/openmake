@@ -1,0 +1,28 @@
+{
+  "name": "openmake",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Open-source, self-hostable, AI-first design platform by webdevdot",
+  "license": "MIT",
+  "repository": "https://github.com/webdevdot/openmake",
+  "packageManager": "pnpm@10.33.0",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "dev": "pnpm --parallel -r dev",
+    "typecheck": "pnpm -r typecheck",
+    "test": "pnpm -r test",
+    "lint": "eslint .",
+    "format": "prettier --write .",
+    "format:check": "prettier --check ."
+  },
+  "devDependencies": {
+    "@eslint/js": "10.0.1",
+    "eslint": "10.6.0",
+    "prettier": "3.9.1",
+    "typescript": "6.0.3",
+    "typescript-eslint": "8.62.0",
+    "vitest": "4.1.9"
+  }
+}
