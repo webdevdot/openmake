@@ -1,9 +1,10 @@
 # Task: WebCloudKey Design Platform — new project bootstrap
 
-- **status:** IN_PROGRESS
+- **status:** DONE ✅
 - **flow:** NEW_PROJECT (forced via /keys:new-project)
 - **created:** 2026-07-05
-- **completed:**
+- **completed:** 2026-07-06T04:35:00+05:30
+- **duration:** ~1 day of build time (12-phase pipeline, 6 parallel builders)
 
 ## Request
 
@@ -203,3 +204,13 @@ Status: PASSED (observed evidence)
   auth guard redirect. Verified the CanvasKit canvas actually renders
   (framebuffer pixel probes) and the Postgres-backed Yjs persistence survives
   a relogin.
+
+## Final Status: DONE ✅
+
+All three mandatory gates passed:
+- Security Gate: PASSED (4 HIGH IDOR + 8 lower findings remediated + regression-tested)
+- Post-Task Review: APPROVED
+- Verification: PASSED (254 tests, editor build, Playwright deep check 3/3, audit clean)
+
+Delivered: 11 packages + 2 apps + E2E suite. Self-hostable via docker compose.
+Wiki seeded: architecture, data-model, api-contracts, decisions. CHANGELOG 0.1.0.
