@@ -135,7 +135,29 @@ image AI · a11y checker · web importer · Motion/3D
 
 ## Security Gate
 
-(pending)
+Status: PASSED (after remediation)
+
+Full OWASP pass via security-auditor agent + `pnpm audit`. Initial verdict was
+CHANGES-REQUESTED (4 HIGH cross-tenant IDOR); all fixed and regression-tested.
+
+Findings:
+- 🔴→✅ HIGH IDOR (MCP by-file-id read/write): PgDocumentStore + PgIntelligenceStore now assert org ownership
+- 🔴→✅ HIGH VIEWER writes over WS: sync is read-only for VIEWER, EDITOR+ to write
+- 🔴→✅ HIGH IDOR (skills/agents/workflows PATCH/DELETE/GET): scoped to URL org
+- 🔴→✅ HIGH IDOR (comment PATCH/DELETE): scoped to file/org
+- 🟡→✅ MED read-only MCP key could write intelligence: ReadOnlyIntelligenceStore added
+- 🟡→✅ MED run_workflow cross-tenant: workflow+agents+file org-validated
+- 🟡→✅ MED unbounded Yjs update DoS: WS maxPayload + hub per-frame cap (4 MiB)
+- 🟡→✅ MED component attachment cross-org ids: validated
+- 🟡→✅ LOW ADMIN grants OWNER: restricted to OWNER
+- 🟡→✅ LOW docker root: server image runs as non-root `node`
+- 🟡→✅ LOW weak default creds: compose requires real POSTGRES/MINIO secrets
+- ℹ️ LOW working-tree .env holds real secrets: gitignored, never committed (informational)
+- ✅ dependency audit clean (@hono/node-server CVE overridden to patched)
+- ✅ verified-good: JWT HS256+issuer (no alg-confusion), argon2id, refresh
+  rotation+reuse-detection, AES-256-GCM key crypto, no SQLi (bound params),
+  in-memory token storage, safe error handler, CORS allowlist
+- ✅ 6 cross-tenant IDOR regression tests added (server suite 23 green)
 
 ## Review
 

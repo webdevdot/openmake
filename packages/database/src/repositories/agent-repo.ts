@@ -34,6 +34,15 @@ export class AgentRepo {
     return this.prisma.agent.findMany({ where: { orgId }, orderBy: { createdAt: 'asc' } });
   }
 
+  /** Lists an org's agents with their skills eagerly loaded (single query — avoids N+1). */
+  listForOrgWithSkills(orgId: string) {
+    return this.prisma.agent.findMany({
+      where: { orgId },
+      orderBy: { createdAt: 'asc' },
+      include: { skills: true },
+    });
+  }
+
   update(id: string, input: UpdateAgentInput): Promise<Agent> {
     return this.prisma.agent.update({ where: { id }, data: input });
   }

@@ -54,14 +54,8 @@ export class PgIntelligenceStore implements IntelligenceStore {
   }
 
   private async listAgentsWithSkills(): Promise<AgentWithSkills[]> {
-    const agents = await this.db.agents.listForOrg(this.orgId);
-    const withSkills = await Promise.all(
-      agents.map(async (agent) => {
-        const full = await this.db.agents.findById(agent.id);
-        return full ?? { ...agent, skills: [] };
-      }),
-    );
-    return withSkills;
+    // Single query with skills included — avoids the per-agent N+1.
+    return this.db.agents.listForOrgWithSkills(this.orgId);
   }
 
   async listAgents(): Promise<AgentSpec[]> {
