@@ -1,0 +1,20 @@
+{
+  "name": "@openmake/core",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@openmake/shared": "workspace:*",
+    "yjs": "13.6.31"
+  },
+  "devDependencies": {
+    "vitest": "4.1.9"
+  }
+}
