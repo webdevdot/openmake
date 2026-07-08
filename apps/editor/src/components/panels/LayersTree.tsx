@@ -1,6 +1,16 @@
 import { useState } from 'react';
-import { ChevronDown, ChevronRight, Eye, EyeOff, Lock, LockOpen } from 'lucide-react';
+import {
+  ChevronDown,
+  ChevronRight,
+  Component,
+  Diamond,
+  Eye,
+  EyeOff,
+  Lock,
+  LockOpen,
+} from 'lucide-react';
 import type { OpenDoc } from '@openmake/core';
+import type { NodeType } from '@openmake/shared';
 import { useDocVersion } from '../../hooks/document.js';
 import { useSelectionStore } from '../../store/selection.js';
 
@@ -65,6 +75,25 @@ function LayerNodeList({
   );
 }
 
+/** Figma's component purple, used to tint component/set/instance layers. */
+const COMPONENT_PURPLE = '#9747ff';
+
+/** The purple layer icon for component-family node types, or null for others. */
+function ComponentTypeIcon({ type }: { type: NodeType }) {
+  if (type === 'COMPONENT_SET') {
+    return <Component size={13} strokeWidth={1.75} style={{ color: COMPONENT_PURPLE }} />;
+  }
+  if (type === 'COMPONENT') {
+    return (
+      <Diamond size={13} strokeWidth={1.75} fill={COMPONENT_PURPLE} style={{ color: COMPONENT_PURPLE }} />
+    );
+  }
+  if (type === 'INSTANCE') {
+    return <Diamond size={13} strokeWidth={1.75} style={{ color: COMPONENT_PURPLE }} />;
+  }
+  return null;
+}
+
 function LayerRow({
   doc,
   id,
@@ -86,6 +115,8 @@ function LayerRow({
 
   const hasChildren = 'children' in node && (node.children as string[]).length > 0;
   const isSelected = selection.includes(id);
+  const isComponentFamily =
+    node.type === 'COMPONENT' || node.type === 'COMPONENT_SET' || node.type === 'INSTANCE';
 
   const commitRename = () => {
     if (draftName.trim()) doc.updateNode(id, { name: draftName.trim() });
@@ -127,6 +158,15 @@ function LayerRow({
           <span className="w-3.5 shrink-0" />
         )}
 
+        {isComponentFamily && (
+          <span
+            data-testid={`layer-icon-${id}`}
+            className="flex w-3.5 shrink-0 items-center justify-center"
+          >
+            <ComponentTypeIcon type={node.type} />
+          </span>
+        )}
+
         {renaming ? (
           <input
             autoFocus
@@ -141,7 +181,12 @@ function LayerRow({
             onClick={(e) => e.stopPropagation()}
           />
         ) : (
-          <span className="flex-1 truncate">{node.name}</span>
+          <span
+            className="flex-1 truncate"
+            style={isComponentFamily ? { color: COMPONENT_PURPLE } : undefined}
+          >
+            {node.name}
+          </span>
         )}
 
         <button

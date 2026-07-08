@@ -9,6 +9,7 @@ import { EffectsSection } from './EffectsSection.js';
 import { AutoLayoutSection } from './AutoLayoutSection.js';
 import { TextSection } from './TextSection.js';
 import { ComponentSection } from './ComponentSection.js';
+import { VariantsSection } from './VariantsSection.js';
 import { InteractionSection } from './InteractionSection.js';
 import { MotionSection } from './MotionSection.js';
 import { ExportSection } from './ExportSection.js';
@@ -54,6 +55,7 @@ export function Inspector({ doc, pageId, onExportPNG, onExportSVG }: InspectorPr
       data-testid="inspector"
     >
       <AlignSection doc={doc} selectedIds={selection} />
+      <VariantsSection doc={doc} selectedIds={selection} />
       {node.type !== 'DOCUMENT' && node.type !== 'PAGE' && (
         <GeometrySection doc={doc} node={node} />
       )}
@@ -62,9 +64,9 @@ export function Inspector({ doc, pageId, onExportPNG, onExportSVG }: InspectorPr
       {hasFills && <FillsSection doc={doc} node={node as never} />}
       {hasStrokes && <StrokesSection doc={doc} node={node as never} />}
       {hasEffects && <EffectsSection doc={doc} node={node as never} />}
-      {(node.type === 'FRAME' || node.type === 'INSTANCE') && (
-        <ComponentSection doc={doc} node={node} />
-      )}
+      {(node.type === 'FRAME' ||
+        node.type === 'COMPONENT' ||
+        node.type === 'INSTANCE') && <ComponentSection doc={doc} node={node} />}
       {canHaveInteraction && <InteractionSection doc={doc} node={node} pageId={pageId} />}
       {canHaveInteraction && <MotionSection doc={doc} node={node} />}
       <ExportSection

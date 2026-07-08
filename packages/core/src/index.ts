@@ -22,6 +22,15 @@ export {
 } from './snap.js';
 export { resolveInstance, type ResolvedInstance } from './instances.js';
 export {
+  parseVariantName,
+  variantMatrixOf,
+  findVariant,
+  variantPropsOf,
+  DEFAULT_VARIANT_PROP,
+  type VariantProps,
+  type ParsedVariantName,
+} from './variants.js';
+export {
   alignNodes,
   distributeNodes,
   flipNode,
