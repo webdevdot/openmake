@@ -25,3 +25,4 @@
 - [2026-07-08 Motion timeline panel + animation→code export](../tasks/2026-07-08-timeline-and-export.md) — FEATURE ×2 via ultracode (Opus agents); Figma Motion parity v1 complete
 - [2026-07-08 UI3 chrome parity + URL/router deep links](../tasks/2026-07-08-ui3-chrome-and-router.md) — FEATURE ×2 via ultracode (Opus agents); right-panel header, toolbar flyouts, slug + node-id/page params
 - [2026-07-08 Left-rail panels: Agents/Assets/Tools/Variables v1](../tasks/2026-07-08-rail-panels.md) — FEATURE ×3 via ultracode (Opus agents); all 5 rail items now real; cross-agent API break caught+fixed in union
+- [2026-07-08 Variables table+aliasing / Dashboard parity](../tasks/2026-07-08-variables-table-and-dashboard.md) — FEATURE ×2 via ultracode (Opus agents); Figma-parity variables editor, real thumbnails, trash/restore routes
