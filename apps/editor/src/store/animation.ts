@@ -28,6 +28,12 @@ interface AnimationState {
   playing: PlayingState | null;
   /** nodeId → sampled property overrides for the current frame. */
   overrides: Record<string, Partial<Record<TrackProperty, number>>>;
+  /**
+   * Current preview time (ms) for whichever node owns `overrides` — the live
+   * playback clock while playing, or the last scrubbed time while paused. The
+   * timeline reads this to position its playhead reactively; 0 when idle.
+   */
+  time: number;
   /** Begin playing `anim` for `nodeId` from t=0. */
   play: (nodeId: string, anim: NodeAnimation, now: number) => void;
   /** Stop playback and drop all overrides (node returns to its authored pose). */
@@ -38,6 +44,14 @@ interface AnimationState {
    * the override changed so the caller can mark the render loop dirty.
    */
   advance: (now: number) => boolean;
+  /**
+   * Paused scrub preview: sample `anim` at `t` (ms) and publish the pose through
+   * the same override map playback uses. Stops any active playback first (a
+   * scrub and a running clock are mutually exclusive). Never writes the doc.
+   */
+  scrub: (nodeId: string, anim: NodeAnimation, t: number) => void;
+  /** Drop any scrub preview override (node returns to its authored pose). */
+  clearScrub: () => void;
   /** True while a node is actively animating. */
   isPlaying: (nodeId: string) => boolean;
 }
@@ -45,17 +59,19 @@ interface AnimationState {
 export const useAnimationStore = create<AnimationState>((set, get) => ({
   playing: null,
   overrides: {},
+  time: 0,
 
   play: (nodeId, anim, now) => {
     set({
       playing: { nodeId, anim, startedAt: now },
       overrides: { [nodeId]: sampleAnimation(anim, 0) },
+      time: 0,
     });
   },
 
   stop: () => {
     if (!get().playing && Object.keys(get().overrides).length === 0) return;
-    set({ playing: null, overrides: {} });
+    set({ playing: null, overrides: {}, time: 0 });
   },
 
   advance: (now) => {
@@ -64,11 +80,24 @@ export const useAnimationStore = create<AnimationState>((set, get) => ({
     const elapsed = now - playing.startedAt;
     if (elapsed >= playing.anim.duration) {
       // v1: stop at the end (no looping) and return the node to its authored pose.
-      set({ playing: null, overrides: {} });
+      set({ playing: null, overrides: {}, time: 0 });
       return true;
     }
-    set({ overrides: { [playing.nodeId]: sampleAnimation(playing.anim, elapsed) } });
+    set({
+      overrides: { [playing.nodeId]: sampleAnimation(playing.anim, elapsed) },
+      time: elapsed,
+    });
     return true;
+  },
+
+  scrub: (nodeId, anim, t) => {
+    // Scrubbing is a paused preview: no running clock, just a static pose.
+    set({ playing: null, overrides: { [nodeId]: sampleAnimation(anim, t) }, time: t });
+  },
+
+  clearScrub: () => {
+    if (get().playing || Object.keys(get().overrides).length === 0) return;
+    set({ overrides: {}, time: 0 });
   },
 
   isPlaying: (nodeId) => get().playing?.nodeId === nodeId,
