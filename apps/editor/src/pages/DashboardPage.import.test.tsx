@@ -95,7 +95,7 @@ describe('DashboardPage new file', () => {
     fireEvent.click(screen.getByTestId('create-file-button'));
 
     await waitFor(() => expect(filesApi.create).toHaveBeenCalledWith('proj1', 'Untitled'));
-    await waitFor(() => expect(mocks.navigate).toHaveBeenCalledWith('/file/file1'));
+    await waitFor(() => expect(mocks.navigate).toHaveBeenCalledWith('/file/file1/untitled'));
   });
 });
 
@@ -137,7 +137,7 @@ describe('DashboardPage .fig import', () => {
         document: { children: [] },
       }),
     );
-    await waitFor(() => expect(mocks.navigate).toHaveBeenCalledWith('/file/file9'));
+    await waitFor(() => expect(mocks.navigate).toHaveBeenCalledWith('/file/file9/design'));
 
     // Input is reset so the same file can be re-picked.
     expect((screen.getByTestId('import-fig-input') as HTMLInputElement).value).toBe('');

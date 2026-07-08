@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import { orgsApi, projectsApi, filesApi } from '../api/endpoints.js';
 import type { FileMeta, Org, Project } from '../api/types.js';
 import { useAuthStore } from '../store/auth.js';
+import { slugify } from '../lib/slug.js';
 
 export function DashboardPage() {
   const navigate = useNavigate();
@@ -55,7 +56,7 @@ export function DashboardPage() {
     // falls back to 'Untitled'.
     if (name === null) return;
     const file = await filesApi.create(activeProjectId, name.trim() || 'Untitled');
-    navigate(`/file/${file.id}`);
+    navigate(`/file/${file.id}/${slugify(file.name)}`);
   };
 
   const importFig = async (e: ChangeEvent<HTMLInputElement>) => {
@@ -91,7 +92,7 @@ export function DashboardPage() {
 
       const name = picked.name.replace(/\.fig$/i, '').trim() || 'Imported file';
       const file = await filesApi.import(activeProjectId, { name, document: importedDocument });
-      navigate(`/file/${file.id}`);
+      navigate(`/file/${file.id}/${slugify(file.name)}`);
     } catch (err) {
       window.alert(err instanceof Error ? err.message : 'Import failed');
     } finally {
@@ -206,7 +207,7 @@ export function DashboardPage() {
                 type="button"
                 data-testid={`file-${file.id}`}
                 className="rounded border p-3 text-left text-xs bg-hover-app border-app"
-                onClick={() => navigate(`/file/${file.id}`)}
+                onClick={() => navigate(`/file/${file.id}/${slugify(file.name)}`)}
               >
                 <div className="mb-2 h-20 rounded bg-active-app" />
                 <div className="truncate font-medium">{file.name}</div>

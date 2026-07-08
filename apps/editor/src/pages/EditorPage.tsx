@@ -7,6 +7,7 @@ import { useCollab } from '../hooks/useCollab.js';
 import { useDocVersion } from '../hooks/document.js';
 import { useAutoLayout } from '../hooks/useAutoLayout.js';
 import { useAwareness } from '../hooks/useAwareness.js';
+import { useUrlSync } from '../hooks/useUrlSync.js';
 import { useSelectionStore } from '../store/selection.js';
 import { useToolStore } from '../store/tool.js';
 import { useCameraStore } from '../store/camera.js';
@@ -48,6 +49,18 @@ export function EditorPage() {
 
   useAutoLayout(session?.doc, session && layoutReady ? activePageId : null);
   const { onPointerMoveWorld } = useAwareness(session?.client ?? null);
+
+  // URL <-> editor-state sync (slug canonicalization, ?node-id deep link,
+  // ?page). Owns all search-param read/write; gated on the doc having content.
+  useUrlSync({
+    session,
+    activePageId,
+    setActivePageId,
+    getViewport: () => ({
+      width: canvasWrapRef.current?.clientWidth ?? window.innerWidth,
+      height: canvasWrapRef.current?.clientHeight ?? window.innerHeight,
+    }),
+  });
 
   // Timeline dock: visible only when a single node is selected AND it has an
   // animation. `docVersion` re-reads keep the node snapshot (and thus its
