@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { initLayout } from '@openmake/layout';
-import { createCanvasKitRenderer, buildRenderScene, exportSVG } from '@openmake/renderer';
 import { useCollab } from '../hooks/useCollab.js';
 import { useDocVersion } from '../hooks/document.js';
 import { useAutoLayout } from '../hooks/useAutoLayout.js';
@@ -11,10 +10,10 @@ import { useSelectionStore } from '../store/selection.js';
 import { useToolStore } from '../store/tool.js';
 import { useCameraStore } from '../store/camera.js';
 import { useImageStore } from '../store/images.js';
-import { clampZoom, zoomByFactor } from '../canvas/camera.js';
+import { clampZoom, screenToWorld, zoomByFactor } from '../canvas/camera.js';
 import { resolveShortcut } from '../lib/shortcuts.js';
 import { duplicateOffset } from '../lib/duplicate.js';
-import { downloadBytes, downloadText } from '../lib/export.js';
+import { exportNodePNG, exportNodeSVG } from '../lib/nodeExport.js';
 import { loadEditorFonts } from '../canvas/fonts.js';
 import { TopBar } from '../components/toolbar/TopBar.js';
 import { BottomToolbar } from '../components/toolbar/BottomToolbar.js';
@@ -162,18 +161,21 @@ export function EditorPage() {
 
   const handleExportPNG = async (nodeId: string, scale: 1 | 2) => {
     if (!session || !activePageId) return;
-    const renderer = await createCanvasKitRenderer({ surface: 'offscreen' });
-    const scene = buildRenderScene(session.doc, activePageId, useImageStore.getState().images);
-    const bytes = await renderer.exportPNG(scene, { nodeId, scale });
-    downloadBytes(bytes, `${session.doc.getNode(nodeId)?.name ?? 'export'}.png`, 'image/png');
-    renderer.dispose();
+    await exportNodePNG(session.doc, activePageId, nodeId, scale);
   };
 
   const handleExportSVG = (nodeId: string) => {
     if (!session || !activePageId) return;
-    const scene = buildRenderScene(session.doc, activePageId, useImageStore.getState().images);
-    const svg = exportSVG(scene, { nodeId });
-    downloadText(svg, `${session.doc.getNode(nodeId)?.name ?? 'export'}.svg`, 'image/svg+xml');
+    exportNodeSVG(session.doc, activePageId, nodeId);
+  };
+
+  // World-space center of the current viewport — where the Assets panel drops
+  // new instances so they land in view regardless of pan/zoom.
+  const getViewportCenter = () => {
+    const wrap = canvasWrapRef.current;
+    const width = wrap?.clientWidth ?? window.innerWidth;
+    const height = wrap?.clientHeight ?? window.innerHeight;
+    return screenToWorld(useCameraStore.getState().camera, { x: width / 2, y: height / 2 });
   };
 
   const canvasEl = useMemo(() => {
@@ -220,6 +222,9 @@ export function EditorPage() {
           fileId={fileId ?? ''}
           activePageId={activePageId}
           onSelectPage={setActivePageId}
+          getViewportCenter={getViewportCenter}
+          onExportPNG={handleExportPNG}
+          onExportSVG={handleExportSVG}
         />
         {/* Canvas column: the canvas area (with its floating pill toolbar)
             stacked above the full-width timeline dock. The relative wrapper

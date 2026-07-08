@@ -2,23 +2,11 @@ import type { OpenDoc } from '@openmake/core';
 import { findVariant, variantMatrixOf, variantPropsOf } from '@openmake/core';
 import type { SceneNode } from '@openmake/shared';
 import { useSelectionStore } from '../../store/selection.js';
+import { INSTANCE_OFFSET, insertInstance, pageAncestor } from '../../lib/instances.js';
 
 export interface ComponentSectionProps {
   doc: OpenDoc;
   node: SceneNode;
-}
-
-/** Offset (px) applied to a new instance so it doesn't sit exactly on its source. */
-const INSTANCE_OFFSET = 40;
-
-/** Walk up to the nearest PAGE ancestor so instances land on the canvas, not inside a set. */
-function pageAncestor(doc: OpenDoc, id: string): string | undefined {
-  for (let cur: string | undefined = id; cur; cur = doc.getParentId(cur)) {
-    const parentId = doc.getParentId(cur);
-    if (!parentId) return undefined;
-    if (doc.getNode(parentId)?.type === 'PAGE') return parentId;
-  }
-  return undefined;
 }
 
 export function ComponentSection({ doc, node }: ComponentSectionProps) {
@@ -62,11 +50,10 @@ export function ComponentSection({ doc, node }: ComponentSectionProps) {
           className="w-full rounded py-1 text-xs bg-hover-app disabled:opacity-40"
           onClick={() => {
             if (!target) return;
-            const instId = doc.createInstance(node.id, target, {
+            const instId = insertInstance(doc, node.id, target, {
               x: node.x + INSTANCE_OFFSET,
               y: node.y + INSTANCE_OFFSET,
             });
-            doc.commitUndoGroup();
             setSelection([instId]);
           }}
         >
