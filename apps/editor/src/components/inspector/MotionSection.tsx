@@ -11,8 +11,15 @@ import {
   type PresetContext,
 } from '@openmake/core';
 import type { Easing, NodeAnimation, SceneNode } from '@openmake/shared';
+import { cssKeyframesFor } from '@openmake/codegen';
 import { NumberField } from './NumberField.js';
 import { useAnimationStore } from '../../store/animation.js';
+
+/** A CSS-identifier-safe keyframes name derived from the node's name/id. */
+function animName(node: SceneNode): string {
+  const base = (node.name || node.type).toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+  return `${base || 'node'}-anim`;
+}
 
 export interface MotionSectionProps {
   doc: OpenDoc;
@@ -116,6 +123,13 @@ export function MotionSection({ doc, node }: MotionSectionProps) {
     doc.commitUndoGroup();
   };
 
+  const copyCss = () => {
+    if (!animation) return;
+    const css = cssKeyframesFor(animName(node), animation);
+    // Clipboard is absent in some environments (tests, insecure contexts); guard it.
+    void navigator.clipboard?.writeText(css);
+  };
+
   const togglePlay = () => {
     if (playing) {
       stop();
@@ -194,14 +208,24 @@ export function MotionSection({ doc, node }: MotionSectionProps) {
           <div className="py-0.5 text-xs text-secondary-app" data-testid="motion-track-count">
             {animation.tracks.length} track{animation.tracks.length === 1 ? '' : 's'}
           </div>
-          <button
-            type="button"
-            data-testid="motion-play-button"
-            className="w-full rounded px-2 py-1 text-xs bg-hover-app"
-            onClick={togglePlay}
-          >
-            {playing ? 'Stop' : 'Play'}
-          </button>
+          <div className="flex gap-1">
+            <button
+              type="button"
+              data-testid="motion-play-button"
+              className="flex-1 rounded px-2 py-1 text-xs bg-hover-app"
+              onClick={togglePlay}
+            >
+              {playing ? 'Stop' : 'Play'}
+            </button>
+            <button
+              type="button"
+              data-testid="motion-copy-css-button"
+              className="flex-1 rounded px-2 py-1 text-xs bg-hover-app"
+              onClick={copyCss}
+            >
+              Copy CSS
+            </button>
+          </div>
         </>
       )}
     </div>

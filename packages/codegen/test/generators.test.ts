@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { getGenerator, implementedFrameworks } from '../src/index.js';
 import {
   absolutePositionFixture,
+  animatedNodeFixture,
   autoLayoutRowFixture,
   cornerRadiusFixture,
   gradientFixture,
@@ -110,5 +111,13 @@ describe('HTML_CSS generator', () => {
   it('emits gradient background-image in css', () => {
     const [file] = getGenerator('HTML_CSS').generate(gradientFixture());
     expect(file?.content).toContain('linear-gradient(');
+  });
+
+  it('appends @keyframes and references the animation class for an animated node', () => {
+    const [file] = getGenerator('HTML_CSS').generate(animatedNodeFixture());
+    expect(file?.content).toContain('@keyframes rect-1-anim {');
+    expect(file?.content).toContain('animation: rect-1-anim 300ms linear 1 none;');
+    // The element carries both its style class and the animation class.
+    expect(file?.content).toMatch(/class="rect-1 rect-1-anim"/);
   });
 });

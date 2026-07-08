@@ -5,6 +5,7 @@ import { htmlTailwindGenerator } from './generators/html-tailwind.js';
 import { htmlCssGenerator } from './generators/html-css.js';
 
 export type { GeneratedFile, Generator } from './types.js';
+export { cssKeyframesFor, waapiSnippetFor } from './animation.js';
 
 /** Frameworks with a working deterministic generator. Others throw a "not implemented" error. */
 export const implementedFrameworks: CodegenFramework[] = ['REACT', 'HTML_TAILWIND', 'HTML_CSS'];
