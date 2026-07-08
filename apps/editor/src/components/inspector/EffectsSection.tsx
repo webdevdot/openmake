@@ -30,6 +30,8 @@ export function EffectsSection({ doc, node }: EffectsSectionProps) {
         <span className="text-xs font-medium text-secondary-app">Effects</span>
         <button
           type="button"
+          aria-label="Add effect"
+          title="Add effect"
           data-testid="add-drop-shadow-button"
           className="rounded px-1 text-xs bg-hover-app"
           onClick={() => commit([...effects, NEW_DROP_SHADOW])}
@@ -42,7 +44,12 @@ export function EffectsSection({ doc, node }: EffectsSectionProps) {
           return (
             <div key={index} className="flex items-center justify-between py-0.5 text-xs">
               <span>{effect.type}</span>
-              <button type="button" onClick={() => commit(effects.filter((_, i) => i !== index))}>
+              <button
+                type="button"
+                aria-label="Remove effect"
+                title="Remove effect"
+                onClick={() => commit(effects.filter((_, i) => i !== index))}
+              >
                 ✕
               </button>
             </div>
@@ -105,6 +112,8 @@ export function EffectsSection({ doc, node }: EffectsSectionProps) {
             />
             <button
               type="button"
+              aria-label="Remove effect"
+              title="Remove effect"
               data-testid="remove-effect-button"
               className="text-xs text-secondary-app"
               onClick={() => commit(effects.filter((_, i) => i !== index))}

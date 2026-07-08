@@ -61,4 +61,35 @@ describe('FillsSection', () => {
       fills: [expect.objectContaining({ type: 'SOLID' })],
     });
   });
+
+  it('icon-only fill controls expose accessible names', () => {
+    const doc = OpenDoc.create();
+    const pageId = doc.getPages()[0]!;
+    const rectId = doc.createNode({
+      type: 'RECTANGLE',
+      parentId: pageId,
+      x: 0,
+      y: 0,
+      width: 10,
+      height: 10,
+      fills: [{ type: 'SOLID', color: { r: 0, g: 0, b: 0, a: 1 }, opacity: 1, visible: true }],
+    });
+    const node = doc.getNode(rectId) as Extract<
+      ReturnType<typeof doc.getNode>,
+      { fills: unknown[] }
+    >;
+
+    render(<FillsSection doc={doc} node={node} />);
+
+    expect(screen.getByTestId('add-fill-button').getAttribute('aria-label')).toBe('Add fill');
+    expect(screen.getByTestId('remove-fill-button').getAttribute('aria-label')).toBe(
+      'Remove fill',
+    );
+    expect(screen.getByTestId('toggle-fill-visibility').getAttribute('aria-label')).toBe(
+      'Hide fill',
+    );
+    expect(screen.getByTestId('bind-variable-button').getAttribute('aria-label')).toBe(
+      'Bind to variable',
+    );
+  });
 });

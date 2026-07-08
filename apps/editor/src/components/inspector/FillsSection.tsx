@@ -34,6 +34,8 @@ export function FillsSection({ doc, node }: FillsSectionProps) {
         <span className="text-xs font-medium text-secondary-app">Fills</span>
         <button
           type="button"
+          aria-label="Add fill"
+          title="Add fill"
           data-testid="add-fill-button"
           className="rounded px-1 text-xs bg-hover-app"
           onClick={() => commit([...fills, NEW_FILL])}
@@ -74,7 +76,7 @@ function FillRow({
     return (
       <div className="flex items-center justify-between py-0.5 text-xs text-secondary-app">
         <span>{fill.type}</span>
-        <button type="button" onClick={onRemove}>
+        <button type="button" aria-label="Remove fill" title="Remove fill" onClick={onRemove}>
           ✕
         </button>
       </div>
@@ -113,6 +115,7 @@ function FillRow({
         </span>
         <button
           type="button"
+          aria-label="Unbind variable"
           data-testid="unbind-fill-button"
           title="Unbind variable"
           className="text-xs text-secondary-app"
@@ -122,6 +125,8 @@ function FillRow({
         </button>
         <button
           type="button"
+          aria-label="Remove fill"
+          title="Remove fill"
           data-testid="remove-fill-button"
           className="text-xs text-secondary-app"
           onClick={onRemove}
@@ -167,6 +172,7 @@ function FillRow({
         />
         <button
           type="button"
+          aria-label="Bind to variable"
           data-testid="bind-variable-button"
           title="Bind to variable"
           className="text-secondary-app disabled:opacity-40"
@@ -177,6 +183,8 @@ function FillRow({
         </button>
         <button
           type="button"
+          aria-label={fill.visible ? 'Hide fill' : 'Show fill'}
+          title={fill.visible ? 'Hide fill' : 'Show fill'}
           data-testid="toggle-fill-visibility"
           className="text-xs text-secondary-app"
           onClick={() => onChange({ ...fill, visible: !fill.visible })}
@@ -185,6 +193,8 @@ function FillRow({
         </button>
         <button
           type="button"
+          aria-label="Remove fill"
+          title="Remove fill"
           data-testid="remove-fill-button"
           className="text-xs text-secondary-app"
           onClick={onRemove}

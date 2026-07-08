@@ -2,7 +2,7 @@
 
 - **Flow:** BUG_FIX (multi-bug QA loop; user-authorized to loop until ready)
 - **Started:** 2026-07-07
-- **Status:** in-progress
+- **Status:** closed (2026-07-09 — round 2 fixes shipped, gates passed)
 - **Brainstorm:** N/A (BUG_FIX — no brainstorm)
 
 ## Goal
@@ -174,8 +174,54 @@ DashboardPage error-handling items (R2-5, R2-6, R2-8) touch one shared file
 and should go to a single owner to avoid overlapping edits. Deferred pending
 user go-ahead before any fixing starts.
 
+### Round 2 — fix (2026-07-09, user go-ahead received)
+
+R2-3 verified already resolved by the later rail-panels task (all 5 IconRail
+sections render real content) — excluded, no action needed.
+
+Remaining 12 findings fixed by 5 parallel builders with strict file
+ownership (each verified current file state before editing, since line
+numbers had drifted since round 2 — find; ran `tsc` + full suite before
+reporting):
+
+- **auth (R2-1 HIGH):** `LoginPage.tsx`/`RegisterPage.tsx` — swapped
+  `var(--color-accent)` → `var(--color-accent-cta)` (5.33:1, AA-passing).
+  Live-verified: submit button visibly darker blue.
+- **toolbar (R2-2 MED, R2-10 LOW):** `TopBar.tsx` — disabled Share now uses
+  `text-secondary-app bg-hover-app` (matches Dashboard's disabled-button
+  convention) instead of a faded copy of the CTA color. Live-verified:
+  reads as clearly non-interactive next to enabled Present. `ZoomMenu.tsx`
+  — added `aria-haspopup="menu"`/`aria-expanded`/`role="menu"`+`menuitem`.
+- **inspector (R2-4 HIGH, R2-7/12/13 MED/LOW):** aria-labels added to every
+  icon-only button across Fills/Strokes/Effects/Interaction sections
+  (Align/Geometry already had them — verified, left alone). ExportSection
+  gained per-button pending state + inline `role="alert"` error. NumberField
+  shows a red-border+message on invalid-input revert. InteractionSection
+  disables the destination select with a "No frames available" hint when
+  empty.
+- **dashboard (R2-5/6/8 MED, single owner):** org/project/file load errors
+  now render distinct inline messages instead of looking like empty states;
+  `createProject` wrapped in try/catch matching the codebase's actual
+  established pattern (only `importFig` had it — `createFile` didn't
+  either, corrected assumption during the fix); org `<select>` got a
+  proper `<label htmlFor>`.
+- **panels/auth-shell (R2-9/11 LOW):** `LayersTree.tsx` visibility/lock
+  buttons gained `aria-label` matching the sibling expand button's pattern.
+  `RequireAuth.tsx` shows a "Loading…" state (reusing EditorPage's pattern)
+  instead of `return null` during session restore.
+
+Union verification (independent of each builder's self-report): 20 files
+changed + 5 new test files, `apps/editor` `tsc --noEmit` clean, full suite
+**277/277 passed, 0 failures**. No cross-builder file collisions.
+
 ## Gates
 
-- [ ] security-gate
-- [ ] post-task-review
-- [ ] wiki update
+- [x] security-gate — BUG_FIX-tier 3-point check: no new input surfaces,
+  no secrets/tokens touched, user-facing error messages match the existing
+  codebase convention (`err.message` surfaced, same as `importFig`) — no
+  new exposure introduced.
+- [x] post-task-review — union suite green (277/277), typecheck clean,
+  live-verified both HIGH items in Chrome (auth CTA contrast, Share
+  disabled-state) post dist-rebuild.
+- [x] wiki update — this record closes the design-bug-sweep flow; round 2
+  fixes committed 2026-07-09.

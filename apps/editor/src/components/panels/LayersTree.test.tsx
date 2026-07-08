@@ -40,6 +40,32 @@ describe('LayersTree', () => {
     expect(updateSpy).toHaveBeenCalledWith(rectId, { visible: false });
   });
 
+  it('exposes accessible labels on the visibility and lock toggle buttons', () => {
+    const { doc, pageId, rectId } = setup();
+    render(<LayersTree doc={doc} pageId={pageId} />);
+
+    const visibilityButton = screen.getByTestId(`layer-visibility-${rectId}`);
+    const lockButton = screen.getByTestId(`layer-lock-${rectId}`);
+
+    expect(visibilityButton.getAttribute('aria-label')).toBe('Hide');
+    expect(visibilityButton.getAttribute('title')).toBe('Hide');
+    expect(lockButton.getAttribute('aria-label')).toBe('Lock');
+    expect(lockButton.getAttribute('title')).toBe('Lock');
+  });
+
+  it('flips the visibility and lock aria-labels to reflect current state', () => {
+    const { doc, pageId, rectId } = setup();
+    render(<LayersTree doc={doc} pageId={pageId} />);
+
+    fireEvent.click(screen.getByTestId(`layer-visibility-${rectId}`));
+    fireEvent.click(screen.getByTestId(`layer-lock-${rectId}`));
+
+    expect(screen.getByTestId(`layer-visibility-${rectId}`).getAttribute('aria-label')).toBe(
+      'Show',
+    );
+    expect(screen.getByTestId(`layer-lock-${rectId}`).getAttribute('aria-label')).toBe('Unlock');
+  });
+
   it('clicking a layer row selects it in the selection store', () => {
     const { doc, pageId, rectId } = setup();
     render(<LayersTree doc={doc} pageId={pageId} />);

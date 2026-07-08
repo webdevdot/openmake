@@ -110,6 +110,38 @@ describe('DashboardPage', () => {
     });
   });
 
+  it('exposes an accessible name for the organization select', async () => {
+    renderPage();
+    await waitFor(() => expect(screen.getByTestId('org-select')).toBeTruthy());
+
+    expect(screen.getByRole('combobox', { name: 'Organization' })).toBeTruthy();
+  });
+
+  it('shows a distinct error message when loading organizations fails', async () => {
+    orgsList.mockRejectedValueOnce(new Error('network down'));
+    renderPage();
+
+    await waitFor(() => expect(screen.getByTestId('orgs-error')).toBeTruthy());
+    expect(screen.getByTestId('orgs-error').textContent).toBe('network down');
+  });
+
+  it('shows a distinct error message when loading projects fails', async () => {
+    projectsList.mockRejectedValueOnce(new Error('projects down'));
+    renderPage();
+
+    await waitFor(() => expect(screen.getByTestId('projects-error')).toBeTruthy());
+    expect(screen.getByTestId('projects-error').textContent).toBe('projects down');
+  });
+
+  it('shows a distinct error message when loading files fails, not the empty state', async () => {
+    filesList.mockRejectedValue(new Error('files down'));
+    renderPage();
+
+    await waitFor(() => expect(screen.getByTestId('files-error')).toBeTruthy());
+    expect(screen.getByTestId('files-error').textContent).toBe('files down');
+    expect(screen.queryByTestId('files-empty')).toBeNull();
+  });
+
   it('sorts a project view by name A-Z and remembers the grid/list layout', async () => {
     renderPage();
     await waitFor(() => expect(screen.getByTestId('project-proj-a')).toBeTruthy());

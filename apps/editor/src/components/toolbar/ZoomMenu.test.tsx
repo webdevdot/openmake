@@ -24,6 +24,20 @@ describe('ZoomMenu', () => {
     expect(screen.queryByTestId('zoom-menu')).toBeNull();
   });
 
+  it('exposes popup menu semantics to assistive tech', () => {
+    render(<ZoomMenu />);
+    const trigger = screen.getByTestId('zoom-menu-trigger');
+
+    expect(trigger.getAttribute('aria-haspopup')).toBe('menu');
+    expect(trigger.getAttribute('aria-expanded')).toBe('false');
+
+    const menu = openMenu();
+
+    expect(trigger.getAttribute('aria-expanded')).toBe('true');
+    expect(menu.getAttribute('role')).toBe('menu');
+    expect(within(menu).getAllByRole('menuitem')).toHaveLength(5);
+  });
+
   it('closes on Escape keydown', () => {
     render(<ZoomMenu />);
     openMenu();

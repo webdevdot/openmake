@@ -89,7 +89,7 @@ export function TopBar({ doc, status, onExportPNG, onExportSVG, onPresent }: Top
         </button>
         <button
           type="button"
-          className="rounded px-2 py-1 text-xs font-medium text-white bg-accent-cta"
+          className="rounded px-2 py-1 text-xs font-medium text-secondary-app bg-hover-app"
           disabled
           title="Coming soon"
         >

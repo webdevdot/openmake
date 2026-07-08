@@ -11,6 +11,7 @@ export interface NumberFieldProps {
 /** Labeled numeric input; commits on blur/Enter, reverts on Escape. */
 export function NumberField({ label, value, onCommit, testId, step = 1 }: NumberFieldProps) {
   const [draft, setDraft] = useState(String(round(value)));
+  const [invalid, setInvalid] = useState(false);
 
   useEffect(() => {
     setDraft(String(round(value)));
@@ -21,8 +22,16 @@ export function NumberField({ label, value, onCommit, testId, step = 1 }: Number
     // "" in its .value, and Number('') is 0 (finite) — guard the empty string
     // explicitly so an invalid entry reverts instead of silently committing 0.
     const parsed = draft.trim() === '' ? NaN : Number(draft);
-    if (Number.isFinite(parsed)) onCommit(parsed);
-    else setDraft(String(round(value)));
+    if (Number.isFinite(parsed)) {
+      setInvalid(false);
+      onCommit(parsed);
+    } else {
+      // Silent reverts leave the user unsure whether their edit "took" —
+      // flag the field briefly so the rejection is visible, not just implied
+      // by the value snapping back.
+      setDraft(String(round(value)));
+      setInvalid(true);
+    }
   };
 
   return (
@@ -32,9 +41,16 @@ export function NumberField({ label, value, onCommit, testId, step = 1 }: Number
         data-testid={testId}
         type="number"
         step={step}
-        className="w-full min-w-0 rounded border bg-transparent px-1 py-0.5 border-app"
+        aria-invalid={invalid}
+        className={
+          'w-full min-w-0 rounded border bg-transparent px-1 py-0.5 border-app' +
+          (invalid ? ' border-red-500 outline outline-1 outline-red-500' : '')
+        }
         value={draft}
-        onChange={(e) => setDraft(e.target.value)}
+        onChange={(e) => {
+          setDraft(e.target.value);
+          if (invalid) setInvalid(false);
+        }}
         onBlur={commit}
         onKeyDown={(e) => {
           if (e.key === 'Enter') {
@@ -43,10 +59,20 @@ export function NumberField({ label, value, onCommit, testId, step = 1 }: Number
           }
           if (e.key === 'Escape') {
             setDraft(String(round(value)));
+            setInvalid(false);
             e.currentTarget.blur();
           }
         }}
       />
+      {invalid && (
+        <span
+          role="alert"
+          data-testid={testId ? `${testId}-invalid` : undefined}
+          className="text-[10px] text-red-500"
+        >
+          Invalid
+        </span>
+      )}
     </label>
   );
 }

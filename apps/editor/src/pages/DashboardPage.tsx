@@ -47,24 +47,39 @@ export function DashboardPage() {
   const [sortMode, setSortMode] = useState<SortMode>('updated');
   const [layout, setLayout] = useState<LayoutMode>(readLayout);
   const [importing, setImporting] = useState(false);
+  const [orgsError, setOrgsError] = useState<string | null>(null);
+  const [projectsError, setProjectsError] = useState<string | null>(null);
+  const [filesError, setFilesError] = useState<string | null>(null);
   const figInputRef = useRef<HTMLInputElement | null>(null);
 
   const activeProjectId = view.kind === 'project' ? view.projectId : null;
 
   useEffect(() => {
-    void orgsApi.list().then((data) => {
-      setOrgs(data);
-      if (data[0]) setActiveOrgId(data[0].id);
-    });
+    setOrgsError(null);
+    void orgsApi
+      .list()
+      .then((data) => {
+        setOrgs(data);
+        if (data[0]) setActiveOrgId(data[0].id);
+      })
+      .catch((err) => {
+        setOrgsError(err instanceof Error ? err.message : 'Failed to load organizations');
+      });
   }, []);
 
   useEffect(() => {
     if (!activeOrgId) return;
-    void projectsApi.list(activeOrgId).then((data) => {
-      setProjects(data);
-      // Land on Recents so the org's most recent work is visible immediately.
-      setView({ kind: 'recents' });
-    });
+    setProjectsError(null);
+    void projectsApi
+      .list(activeOrgId)
+      .then((data) => {
+        setProjects(data);
+        // Land on Recents so the org's most recent work is visible immediately.
+        setView({ kind: 'recents' });
+      })
+      .catch((err) => {
+        setProjectsError(err instanceof Error ? err.message : 'Failed to load projects');
+      });
   }, [activeOrgId]);
 
   // Load the file list for the active view. Recents/Trash aggregate across all
@@ -74,6 +89,7 @@ export function DashboardPage() {
     let cancelled = false;
     async function load() {
       setLoadingFiles(true);
+      setFilesError(null);
       try {
         if (view.kind === 'project') {
           const list = await filesApi.list(view.projectId);
@@ -86,8 +102,11 @@ export function DashboardPage() {
           const lists = await Promise.all(projects.map((p) => filesApi.listDeleted(p.id)));
           if (!cancelled) setFiles(sortFiles(lists.flat(), 'updated'));
         }
-      } catch {
-        if (!cancelled) setFiles([]);
+      } catch (err) {
+        if (!cancelled) {
+          setFiles([]);
+          setFilesError(err instanceof Error ? err.message : 'Failed to load files');
+        }
       } finally {
         if (!cancelled) setLoadingFiles(false);
       }
@@ -124,9 +143,13 @@ export function DashboardPage() {
     if (!activeOrgId) return;
     const name = window.prompt('Project name');
     if (!name) return;
-    const project = await projectsApi.create(activeOrgId, name);
-    setProjects((prev) => [...prev, project]);
-    setView({ kind: 'project', projectId: project.id });
+    try {
+      const project = await projectsApi.create(activeOrgId, name);
+      setProjects((prev) => [...prev, project]);
+      setView({ kind: 'project', projectId: project.id });
+    } catch (err) {
+      window.alert(err instanceof Error ? err.message : 'Failed to create project');
+    }
   };
 
   const createFile = async () => {
@@ -221,8 +244,14 @@ export function DashboardPage() {
           data-testid="org-project-nav"
         >
           <div className="mb-4">
-            <div className="mb-1 text-xs font-medium text-secondary-app">Organization</div>
+            <label
+              htmlFor="org-select"
+              className="mb-1 block text-xs font-medium text-secondary-app"
+            >
+              Organization
+            </label>
             <select
+              id="org-select"
               data-testid="org-select"
               className="w-full rounded border bg-transparent px-2 py-1 text-xs border-app"
               value={activeOrgId ?? ''}
@@ -234,6 +263,11 @@ export function DashboardPage() {
                 </option>
               ))}
             </select>
+            {orgsError && (
+              <p data-testid="orgs-error" className="mt-1 text-xs text-red-500">
+                {orgsError}
+              </p>
+            )}
           </div>
 
           <ul className="mb-4">
@@ -272,6 +306,11 @@ export function DashboardPage() {
               +
             </button>
           </div>
+          {projectsError && (
+            <p data-testid="projects-error" className="mb-2 text-xs text-red-500">
+              {projectsError}
+            </p>
+          )}
           <ul>
             {projects.map((p) => (
               <li key={p.id}>
@@ -367,7 +406,11 @@ export function DashboardPage() {
             </div>
           </div>
 
-          {!loadingFiles && visibleFiles.length === 0 ? (
+          {!loadingFiles && filesError ? (
+            <p data-testid="files-error" className="text-xs text-red-500">
+              {filesError}
+            </p>
+          ) : !loadingFiles && visibleFiles.length === 0 ? (
             <p data-testid="files-empty" className="text-xs text-secondary-app">
               {search.trim()
                 ? 'No files match your search.'

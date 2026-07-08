@@ -71,7 +71,7 @@ export function RegisterPage() {
           disabled={submitting}
           data-testid="register-submit"
           className="rounded py-1.5 text-xs font-medium text-white"
-          style={{ backgroundColor: 'var(--color-accent)' }}
+          style={{ backgroundColor: 'var(--color-accent-cta)' }}
         >
           {submitting ? 'Creating…' : 'Create account'}
         </button>

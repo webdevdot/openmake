@@ -38,6 +38,8 @@ export function ZoomMenu() {
         type="button"
         data-testid="zoom-menu-trigger"
         className="rounded px-2 py-1 text-xs bg-hover-app"
+        aria-haspopup="menu"
+        aria-expanded={open}
         onClick={() => setOpen((o) => !o)}
       >
         {Math.round(camera.zoom * 100)}%
@@ -46,11 +48,13 @@ export function ZoomMenu() {
         <div
           className="absolute right-0 top-full z-10 mt-1 w-32 rounded border bg-panel py-1 border-app"
           data-testid="zoom-menu"
+          role="menu"
         >
           {PRESETS.map((p) => (
             <button
               key={p}
               type="button"
+              role="menuitem"
               className="block w-full px-3 py-1 text-left text-xs bg-hover-app"
               onClick={() => setZoomPercent(p)}
             >

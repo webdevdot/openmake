@@ -30,6 +30,8 @@ export function InteractionSection({ doc, node, pageId }: InteractionSectionProp
         <span className="text-xs font-medium text-secondary-app">Interaction</span>
         <button
           type="button"
+          aria-label="Add interaction"
+          title="Add interaction"
           data-testid="add-interaction-button"
           className="rounded px-1 text-xs bg-hover-app"
           onClick={() => commit([...reactions, NEW_REACTION])}
@@ -38,31 +40,46 @@ export function InteractionSection({ doc, node, pageId }: InteractionSectionProp
         </button>
       </div>
       {reactions.map((reaction, index) => (
-        <div key={index} className="flex items-center gap-1 py-0.5 text-xs">
-          <span className="text-secondary-app">On click →</span>
-          <select
-            data-testid="interaction-destination-select"
-            className="flex-1 rounded border bg-transparent px-1 py-0.5 border-app"
-            value={reaction.action.destinationId ?? ''}
-            onChange={(e) => {
-              const next = [...reactions];
-              next[index] = {
-                ...reaction,
-                action: { ...reaction.action, type: 'NAVIGATE', destinationId: e.target.value },
-              };
-              commit(next);
-            }}
-          >
-            <option value="">Select frame…</option>
-            {frameIds.map((id) => (
-              <option key={id} value={id}>
-                {doc.getNode(id)?.name}
+        <div key={index} className="flex flex-col gap-0.5 py-0.5 text-xs">
+          <div className="flex items-center gap-1">
+            <span className="text-secondary-app">On click →</span>
+            <select
+              data-testid="interaction-destination-select"
+              className="flex-1 rounded border bg-transparent px-1 py-0.5 border-app disabled:opacity-40"
+              value={reaction.action.destinationId ?? ''}
+              disabled={frameIds.length === 0}
+              onChange={(e) => {
+                const next = [...reactions];
+                next[index] = {
+                  ...reaction,
+                  action: { ...reaction.action, type: 'NAVIGATE', destinationId: e.target.value },
+                };
+                commit(next);
+              }}
+            >
+              <option value="" disabled={frameIds.length === 0}>
+                {frameIds.length === 0 ? 'No frames available' : 'Select frame…'}
               </option>
-            ))}
-          </select>
-          <button type="button" onClick={() => commit(reactions.filter((_, i) => i !== index))}>
-            ✕
-          </button>
+              {frameIds.map((id) => (
+                <option key={id} value={id}>
+                  {doc.getNode(id)?.name}
+                </option>
+              ))}
+            </select>
+            <button
+              type="button"
+              aria-label="Remove interaction"
+              title="Remove interaction"
+              onClick={() => commit(reactions.filter((_, i) => i !== index))}
+            >
+              ✕
+            </button>
+          </div>
+          {frameIds.length === 0 && (
+            <span className="text-secondary-app" data-testid="no-destinations-hint">
+              No frames available — add a frame first
+            </span>
+          )}
         </div>
       ))}
     </div>

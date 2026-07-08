@@ -56,6 +56,23 @@ describe('TopBar', () => {
     expect((screen.getByTestId('redo-button') as HTMLButtonElement).disabled).toBe(true);
   });
 
+  it('renders the disabled Share button with a neutral background, not the CTA accent', () => {
+    const doc = OpenDoc.create();
+    render(
+      <TopBar
+        doc={doc}
+        status="connected"
+        onExportPNG={noop}
+        onExportSVG={noop}
+        onPresent={noop}
+      />,
+    );
+    const shareButton = screen.getByText('Share').closest('button') as HTMLButtonElement;
+    expect(shareButton.disabled).toBe(true);
+    expect(shareButton.className).not.toContain('bg-accent-cta');
+    expect(shareButton.className).toContain('bg-hover-app');
+  });
+
   it('clicking the present button fires onPresent', () => {
     const doc = OpenDoc.create();
     const onPresent = vi.fn();

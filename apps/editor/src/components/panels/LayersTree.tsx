@@ -193,6 +193,7 @@ function LayerRow({
           type="button"
           data-testid={`layer-visibility-${id}`}
           className="shrink-0 text-secondary-app"
+          aria-label={node.visible ? 'Hide' : 'Show'}
           title={node.visible ? 'Hide' : 'Show'}
           onClick={(e) => {
             e.stopPropagation();
@@ -210,6 +211,7 @@ function LayerRow({
           type="button"
           data-testid={`layer-lock-${id}`}
           className="shrink-0 text-secondary-app"
+          aria-label={node.locked ? 'Unlock' : 'Lock'}
           title={node.locked ? 'Unlock' : 'Lock'}
           onClick={(e) => {
             e.stopPropagation();

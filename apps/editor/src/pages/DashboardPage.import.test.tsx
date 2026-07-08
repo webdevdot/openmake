@@ -119,6 +119,25 @@ describe('DashboardPage new file', () => {
   });
 });
 
+describe('DashboardPage new project', () => {
+  it('alerts and does not add a project when creation fails', async () => {
+    mockDashboard({ withProject: false });
+    vi.stubGlobal('prompt', vi.fn().mockReturnValue('New Project'));
+    const alertSpy = vi.fn();
+    vi.stubGlobal('alert', alertSpy);
+    vi.mocked(projectsApi.create).mockRejectedValue(new Error('create failed'));
+    render(<DashboardPage />);
+
+    await waitFor(() => expect(orgsApi.list).toHaveBeenCalled());
+    fireEvent.click(screen.getByTestId('create-project-button'));
+
+    await waitFor(() => expect(alertSpy).toHaveBeenCalledTimes(1));
+    expect(String(alertSpy.mock.calls[0]?.[0])).toContain('create failed');
+    expect(mocks.navigate).not.toHaveBeenCalled();
+    expect(screen.queryByTestId('project-proj1')).toBeNull();
+  });
+});
+
 describe('DashboardPage .fig import', () => {
   it('disables the import button when there is no active project', async () => {
     mockDashboard({ withProject: false });

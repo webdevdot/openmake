@@ -27,6 +27,8 @@ export function StrokesSection({ doc, node }: StrokesSectionProps) {
         <span className="text-xs font-medium text-secondary-app">Stroke</span>
         <button
           type="button"
+          aria-label="Add stroke"
+          title="Add stroke"
           data-testid="add-stroke-button"
           className="rounded px-1 text-xs bg-hover-app"
           onClick={() => commit([...strokes, NEW_STROKE])}
@@ -82,6 +84,8 @@ export function StrokesSection({ doc, node }: StrokesSectionProps) {
             </select>
             <button
               type="button"
+              aria-label="Remove stroke"
+              title="Remove stroke"
               data-testid="remove-stroke-button"
               className="text-xs text-secondary-app"
               onClick={() => commit(strokes.filter((_, i) => i !== index))}

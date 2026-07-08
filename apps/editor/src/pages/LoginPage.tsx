@@ -61,7 +61,7 @@ export function LoginPage() {
           disabled={submitting}
           data-testid="login-submit"
           className="rounded py-1.5 text-xs font-medium text-white"
-          style={{ backgroundColor: 'var(--color-accent)' }}
+          style={{ backgroundColor: 'var(--color-accent-cta)' }}
         >
           {submitting ? 'Signing in…' : 'Sign in'}
         </button>

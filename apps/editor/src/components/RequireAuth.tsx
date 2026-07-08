@@ -10,7 +10,13 @@ export function RequireAuth({ children }: { children: React.ReactNode }) {
     if (status === 'idle') void restoreSession();
   }, [status, restoreSession]);
 
-  if (status === 'idle' || status === 'loading') return null;
+  if (status === 'idle' || status === 'loading') {
+    return (
+      <div className="flex h-full items-center justify-center text-xs text-secondary-app">
+        Loading…
+      </div>
+    );
+  }
   if (status === 'unauthenticated') return <Navigate to="/login" replace />;
   return <>{children}</>;
 }
