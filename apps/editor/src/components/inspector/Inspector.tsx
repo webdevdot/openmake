@@ -1,6 +1,7 @@
 import type { OpenDoc } from '@openmake/core';
 import { useDocVersion } from '../../hooks/document.js';
 import { useSelectionStore } from '../../store/selection.js';
+import { AlignSection } from './AlignSection.js';
 import { GeometrySection } from './GeometrySection.js';
 import { FillsSection } from './FillsSection.js';
 import { StrokesSection } from './StrokesSection.js';
@@ -51,6 +52,7 @@ export function Inspector({ doc, pageId, onExportPNG, onExportSVG }: InspectorPr
       className="flex w-panel-right shrink-0 flex-col overflow-y-auto border-l bg-panel border-app"
       data-testid="inspector"
     >
+      <AlignSection doc={doc} selectedIds={selection} />
       {node.type !== 'DOCUMENT' && node.type !== 'PAGE' && (
         <GeometrySection doc={doc} node={node} />
       )}
