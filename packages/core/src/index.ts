@@ -1,4 +1,9 @@
-export { OpenDoc, LOCAL_ORIGIN, type CreateNodeInput } from './doc.js';
+export {
+  OpenDoc,
+  LOCAL_ORIGIN,
+  resolveVariableValue,
+  type CreateNodeInput,
+} from './doc.js';
 export {
   getWorldBounds,
   getWorldMatrix,

@@ -1,5 +1,60 @@
-import type { Color, SceneNode, TrackProperty } from '@openmake/shared';
+import type { Color, Paint, SceneNode, TrackProperty } from '@openmake/shared';
 import { resolveInstance, type OpenDoc } from '@openmake/core';
+
+/**
+ * Resolved COLOR-variable values for the active mode, keyed by variableId →
+ * hex string (e.g. "#3355ff"). Variables v1 binds only solid color fills, so
+ * only COLOR variables need to reach the scene. The editor computes this map
+ * from the doc's variables and its per-collection active-mode view state, and
+ * threads it in the same way image bytes / animation overrides are threaded.
+ * A bound fill whose variable is absent here falls back to its stored color.
+ */
+export type VariableColors = Record<string, string>;
+
+/** #rgb / #rrggbb / #rrggbbaa → Color (0–1). Returns null on malformed input. */
+function hexToColor(hex: string): Color | null {
+  const clean = hex.trim().replace(/^#/, '');
+  const expand = (s: string) =>
+    s.length === 3 || s.length === 4
+      ? s
+          .split('')
+          .map((c) => c + c)
+          .join('')
+      : s;
+  const c = expand(clean);
+  if (c.length !== 6 && c.length !== 8) return null;
+  const n = (i: number) => parseInt(c.slice(i, i + 2), 16);
+  const r = n(0);
+  const g = n(2);
+  const b = n(4);
+  const a = c.length === 8 ? n(6) : 255;
+  if ([r, g, b, a].some(Number.isNaN)) return null;
+  return { r: r / 255, g: g / 255, b: b / 255, a: a / 255 };
+}
+
+/**
+ * Resolve variable-bound solid fills on a node into concrete colors for the
+ * active mode. A SOLID paint with `boundVariableId` present in `variableColors`
+ * is rewritten to that color (alpha preserved from the stored fallback color);
+ * anything unresolved keeps its stored color. Returns the node unchanged when
+ * it has no fills or no bound fills.
+ */
+function resolveNodeFills(node: SceneNode, variableColors: VariableColors): SceneNode {
+  if (!('fills' in node)) return node;
+  const fills = (node as { fills: Paint[] }).fills;
+  let changed = false;
+  const resolved = fills.map((fill) => {
+    if (fill.type !== 'SOLID' || !fill.boundVariableId) return fill;
+    const hex = variableColors[fill.boundVariableId];
+    if (hex === undefined) return fill;
+    const color = hexToColor(hex);
+    if (!color) return fill;
+    changed = true;
+    return { ...fill, color: { ...color, a: fill.color.a } };
+  });
+  if (!changed) return node;
+  return { ...node, fills: resolved } as SceneNode;
+}
 
 /**
  * Per-node property overrides applied on top of the persisted node, keyed by
@@ -41,6 +96,7 @@ export function buildRenderScene(
   pageId: string,
   images?: Record<string, Uint8Array>,
   overrides: SceneOverrides = {},
+  variableColors: VariableColors = {},
 ): RenderScene {
   const page = doc.getNode(pageId);
   if (!page || page.type !== 'PAGE') {
@@ -56,6 +112,8 @@ export function buildRenderScene(
     return { ...node, ...patch } as SceneNode;
   };
 
+  const bindFills = (node: SceneNode): SceneNode => resolveNodeFills(node, variableColors);
+
   const visit = (id: string): string | null => {
     const raw = doc.getNode(id);
     if (!raw || !raw.visible) return null;
@@ -68,7 +126,7 @@ export function buildRenderScene(
         // itself, so its own visible flag is ignored — only the component master's
         // visibility state would otherwise leak in, which isn't meaningful per-instance.
         if (cloneId !== resolved.rootId && !cloneNode.visible) continue;
-        nodes[cloneId] = cloneNode;
+        nodes[cloneId] = bindFills(cloneNode);
       }
       // Recurse into the resolved children so nested invisible nodes are pruned too.
       const rootNode = resolved.nodes[resolved.rootId];
@@ -80,17 +138,17 @@ export function buildRenderScene(
         // Overrides are keyed by the instance's own id; the resolved root uses a
         // synthetic id, so patch it explicitly rather than via applyOverride.
         const rootPatch = overrides[id] ?? {};
-        nodes[resolved.rootId] = {
+        nodes[resolved.rootId] = bindFills({
           ...rootNode,
           ...rootPatch,
           children: visibleChildren,
           visible: true,
-        } as SceneNode;
+        } as SceneNode);
       }
       return resolved.rootId;
     }
 
-    nodes[id] = node;
+    nodes[id] = bindFills(node);
     if ('children' in node) {
       const childIds = doc.getChildrenIds(id);
       const visibleChildIds: string[] = [];
@@ -98,7 +156,7 @@ export function buildRenderScene(
         const resultId = visit(childId);
         if (resultId) visibleChildIds.push(resultId);
       }
-      nodes[id] = { ...node, children: visibleChildIds } as SceneNode;
+      nodes[id] = bindFills({ ...node, children: visibleChildIds } as SceneNode);
     }
     return id;
   };

@@ -25,6 +25,14 @@ export const SolidPaintSchema = z.object({
   color: ColorSchema,
   opacity: z.number().min(0).max(1).default(1),
   visible: z.boolean().default(true),
+  /**
+   * Variables v1 scope: color-fill binding ONLY. When set, this solid paint's
+   * color is driven by a COLOR Variable's value for the active mode; the stored
+   * `color` above is the fallback used when the variable is missing/unresolved.
+   * We intentionally do NOT add a generic `boundVariables` map to paints yet —
+   * gradients, image paints and non-color fields stay unbound in v1.
+   */
+  boundVariableId: z.string().nullable().optional(),
 });
 
 export const GradientStopSchema = z.object({
@@ -416,16 +424,42 @@ export const CONTAINER_TYPES: ReadonlySet<NodeType> = new Set([
 // Variables (design tokens), styles, assets
 // ---------------------------------------------------------------------------
 
-export const VariableSchema = z.object({
+/** A single named mode within a collection (e.g. "Light" / "Dark"). */
+export const VariableModeSchema = z.object({ id: z.string(), name: z.string() });
+export type VariableMode = z.infer<typeof VariableModeSchema>;
+
+/**
+ * Doc-level grouping of variables that share a set of modes. Every collection
+ * has at least one mode; `defaultModeId` names the mode used when a caller does
+ * not pass an explicit active mode. The editor's currently-active mode per
+ * collection is view state (not stored here) — the doc only persists
+ * `defaultModeId`.
+ */
+export const VariableCollectionSchema = z.object({
   id: z.string(),
   name: z.string(),
-  type: z.enum(['COLOR', 'FLOAT', 'STRING', 'BOOLEAN']),
-  /** modeId → value; value shape depends on `type`. */
-  valuesByMode: z.record(z.string(), z.unknown()),
+  modes: z.array(VariableModeSchema).min(1),
+  defaultModeId: z.string(),
+});
+export type VariableCollection = z.infer<typeof VariableCollectionSchema>;
+
+export const VariableTypeSchema = z.enum(['COLOR', 'FLOAT', 'STRING', 'BOOLEAN']);
+export type VariableType = z.infer<typeof VariableTypeSchema>;
+
+/**
+ * A typed design token. `valuesByMode` maps a collection modeId → the value for
+ * that mode. Value encoding by `type`: COLOR → hex string (e.g. "#3355ff"),
+ * FLOAT → number, STRING → string, BOOLEAN → boolean. v1 renderer binding
+ * resolves COLOR variables only (see SolidPaint.boundVariableId).
+ */
+export const VariableSchema = z.object({
+  id: z.string(),
+  collectionId: z.string(),
+  name: z.string(),
+  type: VariableTypeSchema,
+  valuesByMode: z.record(z.string(), z.union([z.string(), z.number(), z.boolean()])),
 });
 export type Variable = z.infer<typeof VariableSchema>;
-
-export const VariableModeSchema = z.object({ id: z.string(), name: z.string() });
 
 export const StyleSchema = z.object({
   id: z.string(),
@@ -456,7 +490,7 @@ export const DocumentDataSchema = z.object({
   rootId: z.string(),
   nodes: z.record(z.string(), SceneNodeSchema),
   variables: z.record(z.string(), VariableSchema).default({}),
-  variableModes: z.array(VariableModeSchema).default([]),
+  variableCollections: z.record(z.string(), VariableCollectionSchema).default({}),
   styles: z.record(z.string(), StyleSchema).default({}),
   assets: z.record(z.string(), AssetRefSchema).default({}),
 });

@@ -3,6 +3,7 @@ import { createCanvasKitRenderer, buildRenderScene, type Renderer } from '@openm
 import { getWorldBounds, hitTest, type OpenDoc } from '@openmake/core';
 import { fitBounds } from '../../canvas/camera.js';
 import { loadEditorFonts } from '../../canvas/fonts.js';
+import { buildVariableColors } from '../../store/variables.js';
 
 export interface PresentOverlayProps {
   doc: OpenDoc;
@@ -68,7 +69,7 @@ export function PresentOverlay({ doc, pageId, startFrameId, onExit, images }: Pr
     canvas.width = Math.round(width * dpr);
     canvas.height = Math.round(height * dpr);
     renderer.resize(width, height, dpr);
-    const scene = buildRenderScene(doc, pageId, images);
+    const scene = buildRenderScene(doc, pageId, images, {}, buildVariableColors(doc));
     const camera = presentCamera(doc, currentFrameId, { width, height });
     renderer.render(scene, camera);
   };

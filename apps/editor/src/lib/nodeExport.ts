@@ -1,6 +1,7 @@
 import type { OpenDoc } from '@openmake/core';
 import { createCanvasKitRenderer, buildRenderScene, exportSVG } from '@openmake/renderer';
 import { useImageStore } from '../store/images.js';
+import { buildVariableColors } from '../store/variables.js';
 import { downloadBytes, downloadText } from './export.js';
 
 /**
@@ -16,7 +17,15 @@ export async function exportNodePNG(
 ): Promise<void> {
   const renderer = await createCanvasKitRenderer({ surface: 'offscreen' });
   try {
-    const scene = buildRenderScene(doc, pageId, useImageStore.getState().images);
+    // Overrides stay empty for exports (no playback pose); bound variable
+    // colors resolve for the active mode so exports match the canvas.
+    const scene = buildRenderScene(
+      doc,
+      pageId,
+      useImageStore.getState().images,
+      {},
+      buildVariableColors(doc),
+    );
     const bytes = await renderer.exportPNG(scene, { nodeId, scale });
     downloadBytes(bytes, `${doc.getNode(nodeId)?.name ?? 'export'}.png`, 'image/png');
   } finally {
@@ -29,7 +38,13 @@ export async function exportNodePNG(
  * the TopBar / inspector export buttons (via EditorPage) and the Tools panel.
  */
 export function exportNodeSVG(doc: OpenDoc, pageId: string, nodeId: string): void {
-  const scene = buildRenderScene(doc, pageId, useImageStore.getState().images);
+  const scene = buildRenderScene(
+    doc,
+    pageId,
+    useImageStore.getState().images,
+    {},
+    buildVariableColors(doc),
+  );
   const svg = exportSVG(scene, { nodeId });
   downloadText(svg, `${doc.getNode(nodeId)?.name ?? 'export'}.svg`, 'image/svg+xml');
 }

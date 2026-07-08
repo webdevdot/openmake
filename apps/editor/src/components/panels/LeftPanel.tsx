@@ -5,6 +5,7 @@ import { LayersTree } from './LayersTree.js';
 import { AgentsPanel } from './AgentsPanel.js';
 import { AssetsPanel } from './AssetsPanel.js';
 import { ToolsPanel } from './ToolsPanel.js';
+import { VariablesPanel } from './VariablesPanel.js';
 import { IconRail, type RailSection } from './IconRail.js';
 
 export interface LeftPanelProps {
@@ -49,6 +50,7 @@ export function LeftPanel({
       {section === 'tools' && (
         <ToolsPanel doc={doc} onExportPNG={onExportPNG} onExportSVG={onExportSVG} />
       )}
+      {section === 'variables' && <VariablesPanel doc={doc} />}
     </div>
   );
 }

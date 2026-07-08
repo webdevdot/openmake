@@ -1,5 +1,10 @@
 import type { OpenDoc } from '@openmake/core';
-import { buildRenderScene, type Renderer, type SceneOverrides } from '@openmake/renderer';
+import {
+  buildRenderScene,
+  type Renderer,
+  type SceneOverrides,
+  type VariableColors,
+} from '@openmake/renderer';
 import type { Camera } from './camera.js';
 
 /**
@@ -34,6 +39,7 @@ export class RenderLoop {
     private readonly getCamera: () => Camera,
     private readonly getImages?: () => Record<string, Uint8Array> | undefined,
     private readonly playback?: PlaybackDriver,
+    private readonly getVariableColors?: () => VariableColors | undefined,
   ) {
     this.unsubscribeDoc = doc.subscribe(() => this.markDirty());
     this.schedule();
@@ -71,6 +77,7 @@ export class RenderLoop {
           pageId,
           this.getImages?.(),
           this.playback?.getOverrides(),
+          this.getVariableColors?.(),
         );
         this.renderer.render(scene, this.getCamera());
       }

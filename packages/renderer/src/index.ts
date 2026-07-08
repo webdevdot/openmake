@@ -3,6 +3,7 @@ export {
   type Camera,
   type RenderScene,
   type SceneOverrides,
+  type VariableColors,
 } from './scene.js';
 export {
   createCanvasKitRenderer,
