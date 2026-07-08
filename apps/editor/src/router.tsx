@@ -17,7 +17,11 @@ export const router = createBrowserRouter([
     ),
   },
   {
-    path: '/file/:fileId',
+    // `:slug?` is a cosmetic, canonicalized-on-load segment (Figma's
+    // /design/:key/:slug scheme). It never participates in data loading —
+    // EditorPage keys off `:fileId` only — so adding/replacing it does not
+    // remount the editor (same route object).
+    path: '/file/:fileId/:slug?',
     element: (
       <RequireAuth>
         <EditorPage />
