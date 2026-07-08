@@ -11,6 +11,7 @@ import { RenderLoop } from '../../canvas/render-loop.js';
 import { loadEditorFonts } from '../../canvas/fonts.js';
 import { normalizeRect, marqueeHits, type Rect } from '../../canvas/marquee.js';
 import { useCreateShapeGesture } from '../../hooks/useCreateShapeGesture.js';
+import { useCreateImage } from '../../hooks/useCreateImage.js';
 import { useSelectGesture } from '../../hooks/useSelectGesture.js';
 import { OverlayLayer } from './OverlayLayer.js';
 import { TextEditorOverlay } from './TextEditorOverlay.js';
@@ -47,6 +48,7 @@ export function Canvas({ doc, pageId, onCursorMoveWorld }: CanvasProps) {
     onCreated: () => setTool('select'),
   });
   const selectGesture = useSelectGesture({ doc, pageId, cameraRef });
+  const createImage = useCreateImage({ doc, pageId });
 
   // --- Setup: renderer + fonts + rAF loop ------------------------------------
   useEffect(() => {
@@ -126,6 +128,31 @@ export function Canvas({ doc, pageId, onCursorMoveWorld }: CanvasProps) {
       window.removeEventListener('keyup', onKeyUp);
     };
   }, [spaceHeld]);
+
+  // --- Image tool: file picker → place at viewport center --------------------
+  // The image tool is a one-shot action rather than a draw-by-drag gesture:
+  // selecting it opens the OS file picker, places the picked image at natural
+  // size centered in the current viewport, then snaps back to the select tool.
+  const imagePickPendingRef = useRef(false);
+  useEffect(() => {
+    if (tool !== 'image' || imagePickPendingRef.current) return;
+    imagePickPendingRef.current = true;
+    const container = containerRef.current;
+    const cam = cameraRef.current;
+    const centerScreen = {
+      x: (container?.clientWidth ?? 0) / 2,
+      y: (container?.clientHeight ?? 0) / 2,
+    };
+    const worldCenter = screenToWorld(cam, centerScreen);
+    void createImage(worldCenter)
+      .then((id) => {
+        if (id) useSelectionStore.getState().set([id]);
+      })
+      .finally(() => {
+        imagePickPendingRef.current = false;
+        setTool('select');
+      });
+  }, [tool, createImage, setTool]);
 
   const isPanMode = tool === 'hand' || spaceHeld;
 

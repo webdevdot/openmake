@@ -8,6 +8,9 @@ import {
   Type,
   Hand,
   MessageCircle,
+  Hexagon,
+  Star,
+  Image,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { useToolStore, type ToolId } from '../../store/tool.js';
@@ -17,8 +20,11 @@ const TOOLS: Array<{ id: ToolId; label: string; shortcut: string; icon: LucideIc
   { id: 'frame', label: 'Frame', shortcut: 'F', icon: Frame },
   { id: 'rectangle', label: 'Rectangle', shortcut: 'R', icon: Square },
   { id: 'ellipse', label: 'Ellipse', shortcut: 'O', icon: Circle },
+  { id: 'polygon', label: 'Polygon', shortcut: 'G', icon: Hexagon },
+  { id: 'star', label: 'Star', shortcut: 'S', icon: Star },
   { id: 'line', label: 'Line', shortcut: 'L', icon: Minus },
   { id: 'pen', label: 'Pen', shortcut: 'P', icon: PenTool },
+  { id: 'image', label: 'Place image', shortcut: 'K', icon: Image },
   { id: 'text', label: 'Text', shortcut: 'T', icon: Type },
   { id: 'hand', label: 'Hand tool', shortcut: 'H', icon: Hand },
 ];
@@ -46,6 +52,7 @@ export function BottomToolbar() {
             key={t.id}
             type="button"
             title={`${t.label} (${t.shortcut})`}
+            aria-label={t.label}
             data-testid={`tool-${t.id}`}
             aria-pressed={isActive}
             className="flex h-8 w-9 items-center justify-center rounded-lg text-zinc-100 hover:bg-white/10"

@@ -12,19 +12,38 @@ const TOOL_IDS: ToolId[] = [
   'frame',
   'rectangle',
   'ellipse',
+  'polygon',
+  'star',
   'line',
   'pen',
+  'image',
   'text',
   'hand',
 ];
 
 describe('BottomToolbar', () => {
-  it('renders all 8 tool buttons by testid', () => {
+  it('renders every tool button by testid', () => {
     render(<BottomToolbar />);
     for (const id of TOOL_IDS) {
       expect(screen.getByTestId(`tool-${id}`)).toBeTruthy();
     }
   });
+
+  it('exposes polygon, star and image buttons with accessible labels', () => {
+    render(<BottomToolbar />);
+    expect(screen.getByLabelText('Polygon')).toBeTruthy();
+    expect(screen.getByLabelText('Star')).toBeTruthy();
+    expect(screen.getByLabelText('Place image')).toBeTruthy();
+  });
+
+  it.each(['polygon', 'star', 'image'] as const)(
+    'clicking tool-%s updates the tool store',
+    (id) => {
+      render(<BottomToolbar />);
+      fireEvent.click(screen.getByTestId(`tool-${id}`));
+      expect(useToolStore.getState().tool).toBe(id);
+    },
+  );
 
   it('clicking tool-pen updates the tool store', () => {
     render(<BottomToolbar />);
