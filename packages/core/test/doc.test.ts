@@ -578,3 +578,128 @@ describe('variable collections, variables, and styles', () => {
     expect(doc.getVariableCollections()[colId]).toBeDefined();
   });
 });
+
+describe('variable aliasing', () => {
+  it('resolves an alias chain A -> B -> C to the terminal scalar', () => {
+    const { doc } = newDocWithPage();
+    const colId = doc.createVariableCollection('Theme', 'Light');
+    const c = doc.createVariable(colId, 'COLOR', 'c', '#cccccc');
+    const b = doc.createVariable(colId, 'COLOR', 'b');
+    const a = doc.createVariable(colId, 'COLOR', 'a');
+    doc.setVariableAlias(b, doc.getVariableCollections()[colId]!.defaultModeId, c);
+    doc.setVariableAlias(a, doc.getVariableCollections()[colId]!.defaultModeId, b);
+    expect(doc.resolveVariableValue(a)).toBe('#cccccc');
+    expect(doc.resolveVariableValue(b)).toBe('#cccccc');
+  });
+
+  it('resolves cross-collection aliases against each collection active mode', () => {
+    const { doc } = newDocWithPage();
+    const colA = doc.createVariableCollection('A', 'Light');
+    const aLight = doc.getVariableCollections()[colA]!.modes[0]!.id;
+    const aDark = doc.addMode(colA, 'Dark');
+
+    const colB = doc.createVariableCollection('B', 'Small');
+    const bSmall = doc.getVariableCollections()[colB]!.modes[0]!.id;
+    const bLarge = doc.addMode(colB, 'Large');
+
+    // Target lives in B: Small -> "#111111", Large -> "#eeeeee".
+    const target = doc.createVariable(colB, 'COLOR', 'target', '#111111');
+    doc.updateVariable(target, { valuesByMode: { [bLarge]: '#eeeeee' } });
+
+    // Source lives in A and aliases target in BOTH A modes.
+    const source = doc.createVariable(colA, 'COLOR', 'source');
+    doc.setVariableAlias(source, aLight, target);
+    doc.setVariableAlias(source, aDark, target);
+
+    // Reading source in A=Light, B=Large picks B's Large value.
+    expect(doc.resolveVariableValue(source, { [colA]: aLight, [colB]: bLarge })).toBe('#eeeeee');
+    // Reading source in A=Dark, B=Small picks B's Small value.
+    expect(doc.resolveVariableValue(source, { [colA]: aDark, [colB]: bSmall })).toBe('#111111');
+    // No modes map: source's alias falls back to B's default (Small).
+    expect(doc.resolveVariableValue(source)).toBe('#111111');
+  });
+
+  it('returns undefined for a direct self-cycle', () => {
+    const { doc } = newDocWithPage();
+    const colId = doc.createVariableCollection('Theme', 'Light');
+    const mode = doc.getVariableCollections()[colId]!.defaultModeId;
+    const a = doc.createVariable(colId, 'COLOR', 'a', '#aaaaaa');
+    // Force a self-alias directly (setVariableAlias would reject it).
+    doc.updateVariable(a, { valuesByMode: { [mode]: { alias: a } } });
+    expect(doc.resolveVariableValue(a)).toBeUndefined();
+  });
+
+  it('returns undefined for a transitive cycle A -> B -> A', () => {
+    const { doc } = newDocWithPage();
+    const colId = doc.createVariableCollection('Theme', 'Light');
+    const mode = doc.getVariableCollections()[colId]!.defaultModeId;
+    const a = doc.createVariable(colId, 'COLOR', 'a', '#aaaaaa');
+    const b = doc.createVariable(colId, 'COLOR', 'b', '#bbbbbb');
+    doc.setVariableAlias(b, mode, a);
+    // Force the closing edge directly (setVariableAlias would reject the cycle).
+    doc.updateVariable(a, { valuesByMode: { [mode]: { alias: b } } });
+    expect(doc.resolveVariableValue(a)).toBeUndefined();
+    expect(doc.resolveVariableValue(b)).toBeUndefined();
+  });
+
+  it('returns undefined for a dangling alias target', () => {
+    const { doc } = newDocWithPage();
+    const colId = doc.createVariableCollection('Theme', 'Light');
+    const mode = doc.getVariableCollections()[colId]!.defaultModeId;
+    const a = doc.createVariable(colId, 'COLOR', 'a', '#aaaaaa');
+    doc.updateVariable(a, { valuesByMode: { [mode]: { alias: 'ghost' } } });
+    expect(doc.resolveVariableValue(a)).toBeUndefined();
+  });
+
+  it('setVariableAlias rejects self-alias and cycle-forming targets', () => {
+    const { doc } = newDocWithPage();
+    const colId = doc.createVariableCollection('Theme', 'Light');
+    const mode = doc.getVariableCollections()[colId]!.defaultModeId;
+    const a = doc.createVariable(colId, 'COLOR', 'a', '#aaaaaa');
+    const b = doc.createVariable(colId, 'COLOR', 'b', '#bbbbbb');
+    expect(() => doc.setVariableAlias(a, mode, a)).toThrow(/cycle/);
+    doc.setVariableAlias(b, mode, a); // b -> a, fine
+    // a -> b would close a cycle (a -> b -> a).
+    expect(() => doc.setVariableAlias(a, mode, b)).toThrow(/cycle/);
+  });
+
+  it('wouldCreateAliasCycle detects direct and transitive cycles', () => {
+    const { doc } = newDocWithPage();
+    const colId = doc.createVariableCollection('Theme', 'Light');
+    const mode = doc.getVariableCollections()[colId]!.defaultModeId;
+    const a = doc.createVariable(colId, 'COLOR', 'a', '#aaaaaa');
+    const b = doc.createVariable(colId, 'COLOR', 'b', '#bbbbbb');
+    const c = doc.createVariable(colId, 'COLOR', 'c', '#cccccc');
+    expect(doc.wouldCreateAliasCycle(a, mode, a)).toBe(true);
+    doc.setVariableAlias(b, mode, c); // b -> c
+    // Aliasing a -> b is fine (a -> b -> c, no cycle).
+    expect(doc.wouldCreateAliasCycle(a, mode, b)).toBe(false);
+    doc.setVariableAlias(c, mode, a); // c -> a, so chain is b -> c -> a
+    // Now a -> b would cycle (a -> b -> c -> a).
+    expect(doc.wouldCreateAliasCycle(a, mode, b)).toBe(true);
+  });
+
+  it('setVariableAlias then a scalar write clears the alias', () => {
+    const { doc } = newDocWithPage();
+    const colId = doc.createVariableCollection('Theme', 'Light');
+    const mode = doc.getVariableCollections()[colId]!.defaultModeId;
+    const a = doc.createVariable(colId, 'COLOR', 'a', '#aaaaaa');
+    const b = doc.createVariable(colId, 'COLOR', 'b', '#bbbbbb');
+    doc.setVariableAlias(a, mode, b);
+    expect(doc.resolveVariableValue(a)).toBe('#bbbbbb');
+    doc.updateVariable(a, { valuesByMode: { [mode]: '#123456' } });
+    expect(doc.resolveVariableValue(a)).toBe('#123456');
+  });
+
+  it('legacy modeId call shape still resolves same-collection values', () => {
+    const { doc } = newDocWithPage();
+    const colId = doc.createVariableCollection('Theme', 'Light');
+    const lightId = doc.getVariableCollections()[colId]!.modes[0]!.id;
+    const darkId = doc.addMode(colId, 'Dark');
+    const varId = doc.createVariable(colId, 'COLOR', 'primary', '#111111');
+    doc.updateVariable(varId, { valuesByMode: { [darkId]: '#eeeeee' } });
+    expect(doc.resolveVariableValue(varId, darkId)).toBe('#eeeeee');
+    expect(doc.resolveVariableValue(varId, lightId)).toBe('#111111');
+    expect(doc.resolveVariableValue(varId, 'nope')).toBe('#111111');
+  });
+});

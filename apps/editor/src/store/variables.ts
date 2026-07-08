@@ -38,10 +38,28 @@ export function activeModeIdFor(
 }
 
 /**
+ * The concrete `collectionId → modeId` map for the current view: every
+ * collection's active mode (falling back to its stored default). Threaded into
+ * the resolver so alias chains resolve against the active mode of *each*
+ * collection they cross, not just the source variable's own.
+ */
+export function modesByCollectionFor(
+  doc: OpenDoc,
+  activeModeByCollection: Record<string, string>,
+): Record<string, string> {
+  const map: Record<string, string> = {};
+  for (const collectionId of Object.keys(doc.getVariableCollections())) {
+    const modeId = activeModeIdFor(doc, collectionId, activeModeByCollection);
+    if (modeId !== undefined) map[collectionId] = modeId;
+  }
+  return map;
+}
+
+/**
  * Build the variableId → hex map threaded into `buildRenderScene`. For every
- * COLOR variable, resolve its value for the collection's active mode (falling
- * back to the collection default). Non-color variables are skipped — v1 binds
- * only solid color fills.
+ * COLOR variable, resolve its value in the active-mode context (following alias
+ * chains across collections in their respective active modes). Non-color
+ * variables are skipped — v1 binds only solid color fills.
  */
 export function buildVariableColors(
   doc: OpenDoc,
@@ -49,10 +67,10 @@ export function buildVariableColors(
     .activeModeByCollection,
 ): VariableColors {
   const colors: VariableColors = {};
+  const modesByCollection = modesByCollectionFor(doc, activeModeByCollection);
   for (const variable of Object.values(doc.getVariables())) {
     if (variable.type !== 'COLOR') continue;
-    const modeId = activeModeIdFor(doc, variable.collectionId, activeModeByCollection);
-    const value = doc.resolveVariableValue(variable.id, modeId);
+    const value = doc.resolveVariableValue(variable.id, modesByCollection);
     if (typeof value === 'string') colors[variable.id] = value;
   }
   return colors;

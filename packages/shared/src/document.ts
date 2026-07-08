@@ -447,17 +447,47 @@ export const VariableTypeSchema = z.enum(['COLOR', 'FLOAT', 'STRING', 'BOOLEAN']
 export type VariableType = z.infer<typeof VariableTypeSchema>;
 
 /**
+ * An alias: a per-mode value that points at another variable instead of
+ * holding a scalar. `alias` is the target variable's id. The resolver follows
+ * the target in the same active-mode context, guarding cycles. The object form
+ * is validated to a single `alias` string key (`.strict()`).
+ */
+export const VariableAliasSchema = z.object({ alias: z.string() }).strict();
+export type VariableAlias = z.infer<typeof VariableAliasSchema>;
+
+/** A per-mode variable value: a scalar, or an alias to another variable. */
+export const VariableValueSchema = z.union([
+  z.string(),
+  z.number(),
+  z.boolean(),
+  VariableAliasSchema,
+]);
+export type VariableValue = z.infer<typeof VariableValueSchema>;
+
+/** Narrow a per-mode value to the alias object form. */
+export function isVariableAlias(value: unknown): value is VariableAlias {
+  return (
+    typeof value === 'object' &&
+    value !== null &&
+    'alias' in value &&
+    typeof (value as { alias: unknown }).alias === 'string'
+  );
+}
+
+/**
  * A typed design token. `valuesByMode` maps a collection modeId → the value for
  * that mode. Value encoding by `type`: COLOR → hex string (e.g. "#3355ff"),
- * FLOAT → number, STRING → string, BOOLEAN → boolean. v1 renderer binding
- * resolves COLOR variables only (see SolidPaint.boundVariableId).
+ * FLOAT → number, STRING → string, BOOLEAN → boolean. Any mode value may
+ * instead be an alias (`{ alias: <variableId> }`) pointing at another variable
+ * of the same type. v1 renderer binding resolves COLOR variables only (see
+ * SolidPaint.boundVariableId).
  */
 export const VariableSchema = z.object({
   id: z.string(),
   collectionId: z.string(),
   name: z.string(),
   type: VariableTypeSchema,
-  valuesByMode: z.record(z.string(), z.union([z.string(), z.number(), z.boolean()])),
+  valuesByMode: z.record(z.string(), VariableValueSchema),
 });
 export type Variable = z.infer<typeof VariableSchema>;
 
