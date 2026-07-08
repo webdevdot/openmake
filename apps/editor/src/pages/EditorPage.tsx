@@ -22,6 +22,7 @@ import { LeftPanel } from '../components/panels/LeftPanel.js';
 import { Inspector } from '../components/inspector/Inspector.js';
 import { Canvas } from '../components/canvas/Canvas.js';
 import { PresentOverlay } from '../components/canvas/PresentOverlay.js';
+import { TimelinePanel } from '../components/timeline/TimelinePanel.js';
 
 export function EditorPage() {
   const { fileId } = useParams<{ fileId: string }>();
@@ -47,6 +48,14 @@ export function EditorPage() {
 
   useAutoLayout(session?.doc, session && layoutReady ? activePageId : null);
   const { onPointerMoveWorld } = useAwareness(session?.client ?? null);
+
+  // Timeline dock: visible only when a single node is selected AND it has an
+  // animation. `docVersion` re-reads keep the node snapshot (and thus its
+  // animation) fresh; `selectedIds` re-renders on selection changes.
+  const selectedIds = useSelectionStore((s) => s.selectedIds);
+  const timelineNode =
+    session && selectedIds.length === 1 ? (session.doc.getNode(selectedIds[0]!) ?? null) : null;
+  const timelineTarget = timelineNode?.animation ? timelineNode : null;
 
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
@@ -195,19 +204,23 @@ export function EditorPage() {
       />
       <div className="flex flex-1 overflow-hidden">
         <LeftPanel doc={session.doc} activePageId={activePageId} onSelectPage={setActivePageId} />
-        {/* Relative wrapper takes over the flex-1 role so the floating
-            BottomToolbar pill centers over the canvas only, not the full
-            row. Canvas's own flex-1 root stretches to fill this wrapper. */}
-        <div ref={canvasWrapRef} className="relative flex flex-1 overflow-hidden">
-          {canvasEl}
-          <div
-            data-testid="page-chip"
-            className="pointer-events-none absolute left-3 top-3 z-10 flex items-center gap-1.5 rounded px-2 py-1 text-xs bg-floating-app text-zinc-100"
-          >
-            <Square size={14} strokeWidth={1.75} />
-            <span>{session.doc.getNode(activePageId)?.name}</span>
+        {/* Canvas column: the canvas area (with its floating pill toolbar)
+            stacked above the full-width timeline dock. The relative wrapper
+            keeps the BottomToolbar pill centered over the canvas only, and
+            Canvas's own flex-1 root stretches to fill it. */}
+        <div className="flex flex-1 flex-col overflow-hidden">
+          <div ref={canvasWrapRef} className="relative flex flex-1 overflow-hidden">
+            {canvasEl}
+            <div
+              data-testid="page-chip"
+              className="pointer-events-none absolute left-3 top-3 z-10 flex items-center gap-1.5 rounded px-2 py-1 text-xs bg-floating-app text-zinc-100"
+            >
+              <Square size={14} strokeWidth={1.75} />
+              <span>{session.doc.getNode(activePageId)?.name}</span>
+            </div>
+            <BottomToolbar />
           </div>
-          <BottomToolbar />
+          {timelineTarget && <TimelinePanel doc={session.doc} node={timelineTarget} />}
         </div>
         <Inspector
           doc={session.doc}
