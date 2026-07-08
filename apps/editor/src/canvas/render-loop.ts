@@ -20,6 +20,7 @@ export class RenderLoop {
     private readonly doc: OpenDoc,
     private readonly getPageId: () => string | null,
     private readonly getCamera: () => Camera,
+    private readonly getImages?: () => Record<string, Uint8Array> | undefined,
   ) {
     this.unsubscribeDoc = doc.subscribe(() => this.markDirty());
     this.schedule();
@@ -42,7 +43,7 @@ export class RenderLoop {
       this.dirty = false;
       const pageId = this.getPageId();
       if (pageId) {
-        const scene = buildRenderScene(this.doc, pageId);
+        const scene = buildRenderScene(this.doc, pageId, this.getImages?.());
         this.renderer.render(scene, this.getCamera());
       }
     }

@@ -11,6 +11,8 @@ const TOOL_TO_NODE_TYPE: Partial<Record<string, NodeType>> = {
   frame: 'FRAME',
   rectangle: 'RECTANGLE',
   ellipse: 'ELLIPSE',
+  polygon: 'POLYGON',
+  star: 'STAR',
   line: 'LINE',
 };
 

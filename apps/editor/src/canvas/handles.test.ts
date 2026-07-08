@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import { handlePositions, resizeBounds } from './handles.js';
+import {
+  handlePositions,
+  resizeBounds,
+  boundsCenter,
+  rotationAngle,
+  snapAngle,
+} from './handles.js';
 
 describe('handles', () => {
   it('handlePositions places all 8 handles around the bounds', () => {
@@ -35,5 +41,39 @@ describe('handles', () => {
     const next = resizeBounds(original, 'se', { x: -100, y: -100 }, false);
     expect(next.width).toBeGreaterThan(0);
     expect(next.height).toBeGreaterThan(0);
+  });
+});
+
+describe('rotation', () => {
+  it('boundsCenter returns the geometric center', () => {
+    expect(boundsCenter({ x: 10, y: 20, width: 100, height: 40 })).toEqual({ x: 60, y: 40 });
+  });
+
+  it('rotationAngle is 0 when the pointer is directly above the center', () => {
+    const center = { x: 50, y: 50 };
+    expect(rotationAngle(center, { x: 50, y: 0 })).toBeCloseTo(0);
+  });
+
+  it('rotationAngle is 90 to the right, 180 below, -90 to the left', () => {
+    const center = { x: 50, y: 50 };
+    expect(rotationAngle(center, { x: 100, y: 50 })).toBeCloseTo(90);
+    expect(rotationAngle(center, { x: 50, y: 100 })).toBeCloseTo(180);
+    expect(rotationAngle(center, { x: 0, y: 50 })).toBeCloseTo(-90);
+  });
+
+  it('snapAngle passes the angle through when snap is off, normalized to [0,360)', () => {
+    expect(snapAngle(37, false)).toBeCloseTo(37);
+    expect(snapAngle(-10, false)).toBeCloseTo(350);
+    expect(snapAngle(370, false)).toBeCloseTo(10);
+  });
+
+  it('snapAngle rounds to the nearest 15 degrees when snap is on', () => {
+    expect(snapAngle(37, true)).toBe(30);
+    expect(snapAngle(38, true)).toBe(45);
+    expect(snapAngle(-7, true)).toBe(0);
+    // 352 is 7° from 345 and 8° from 360, so it snaps down to 345.
+    expect(snapAngle(352, true)).toBe(345);
+    // 353 is 7° from 360 (→0) and 8° from 345, so it wraps to 0.
+    expect(snapAngle(353, true)).toBe(0);
   });
 });

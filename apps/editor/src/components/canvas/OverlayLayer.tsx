@@ -2,7 +2,14 @@ import { useEffect, useRef, useState } from 'react';
 import type { RefObject } from 'react';
 import type { Bounds, OpenDoc } from '@openmake/core';
 import { worldToScreen, type Camera } from '../../canvas/camera.js';
-import { handlePositions, resizeBounds, type HandleId } from '../../canvas/handles.js';
+import {
+  handlePositions,
+  resizeBounds,
+  boundsCenter,
+  rotationAngle,
+  snapAngle,
+  type HandleId,
+} from '../../canvas/handles.js';
 import type { Rect } from '../../canvas/marquee.js';
 import { useDocVersion } from '../../hooks/document.js';
 import { presenceLabelColor } from '../../lib/presence-color.js';
@@ -135,6 +142,10 @@ export function OverlayLayer({
             borderColor: 'var(--color-accent)',
             cursor: 'grab',
           }}
+          onPointerDown={(e) => {
+            e.stopPropagation();
+            startRotateDrag(doc, singleSelectedId, singleBounds, camera, e);
+          }}
         />
       )}
 
@@ -181,6 +192,19 @@ export function OverlayLayer({
   );
 }
 
+/** Maps client (screen) coordinates to world space using the canvas origin. */
+function makeToWorld(camera: Camera, downEvent: React.PointerEvent) {
+  const canvasRect = (downEvent.target as HTMLElement)
+    .closest('[data-testid="canvas-container"]')
+    ?.getBoundingClientRect();
+  const originX = canvasRect?.left ?? 0;
+  const originY = canvasRect?.top ?? 0;
+  return (clientX: number, clientY: number) => ({
+    x: (clientX - originX) / camera.zoom + camera.x,
+    y: (clientY - originY) / camera.zoom + camera.y,
+  });
+}
+
 function startResizeDrag(
   doc: OpenDoc,
   nodeId: string,
@@ -189,27 +213,48 @@ function startResizeDrag(
   camera: Camera,
   downEvent: React.PointerEvent,
 ): void {
-  const startWorld = { x: downEvent.clientX, y: downEvent.clientY };
-  const canvasRect = (downEvent.target as HTMLElement)
-    .closest('[data-testid="canvas-container"]')
-    ?.getBoundingClientRect();
-
-  const toWorld = (clientX: number, clientY: number) => {
-    const originX = canvasRect?.left ?? 0;
-    const originY = canvasRect?.top ?? 0;
-    return {
-      x: (clientX - originX) / camera.zoom + camera.x,
-      y: (clientY - originY) / camera.zoom + camera.y,
-    };
-  };
-
-  const startWorldPoint = toWorld(startWorld.x, startWorld.y);
+  const toWorld = makeToWorld(camera, downEvent);
+  const startWorldPoint = toWorld(downEvent.clientX, downEvent.clientY);
 
   const onMove = (e: PointerEvent) => {
     const currentWorld = toWorld(e.clientX, e.clientY);
     const delta = { x: currentWorld.x - startWorldPoint.x, y: currentWorld.y - startWorldPoint.y };
     const next = resizeBounds(originalBounds, handle, delta, e.shiftKey);
     doc.updateNode(nodeId, next as unknown as Record<string, unknown>);
+  };
+  const onUp = () => {
+    window.removeEventListener('pointermove', onMove);
+    window.removeEventListener('pointerup', onUp);
+    doc.commitUndoGroup();
+  };
+  window.addEventListener('pointermove', onMove);
+  window.addEventListener('pointerup', onUp);
+}
+
+/**
+ * Rotate a node about its bounds center by dragging the rotate handle. The
+ * starting pointer angle is treated as the node's current rotation, so grabbing
+ * the handle never snaps the node; subsequent motion adds the swept delta.
+ * Shift snaps to 15° increments.
+ */
+function startRotateDrag(
+  doc: OpenDoc,
+  nodeId: string,
+  originalBounds: Bounds,
+  camera: Camera,
+  downEvent: React.PointerEvent,
+): void {
+  const toWorld = makeToWorld(camera, downEvent);
+  const center = boundsCenter(originalBounds);
+  const startRotation = doc.getNode(nodeId)?.rotation ?? 0;
+  const startPoint = toWorld(downEvent.clientX, downEvent.clientY);
+  const startAngle = rotationAngle(center, startPoint);
+
+  const onMove = (e: PointerEvent) => {
+    const currentPoint = toWorld(e.clientX, e.clientY);
+    const currentAngle = rotationAngle(center, currentPoint);
+    const next = snapAngle(startRotation + (currentAngle - startAngle), e.shiftKey);
+    doc.updateNode(nodeId, { rotation: next });
   };
   const onUp = () => {
     window.removeEventListener('pointermove', onMove);

@@ -87,3 +87,33 @@ export function resizeBounds(
 
   return { x, y, width, height };
 }
+
+/** Center of a bounds rect (the pivot the rotate handle turns about). */
+export function boundsCenter(bounds: Bounds): { x: number; y: number } {
+  return { x: bounds.x + bounds.width / 2, y: bounds.y + bounds.height / 2 };
+}
+
+/**
+ * Rotation in degrees for a pointer at `point` (world space) relative to
+ * `center`, where 0° means the pointer is directly above the center (matching
+ * the rotate handle's rest position at the top-center of the bounds). Clockwise
+ * is positive, consistent with `rotationDeg` in core geometry.
+ */
+export function rotationAngle(
+  center: { x: number; y: number },
+  point: { x: number; y: number },
+): number {
+  // atan2(dx, -dy): rotate the reference so straight up (dy < 0) is 0°.
+  const deg = (Math.atan2(point.x - center.x, center.y - point.y) * 180) / Math.PI;
+  return deg;
+}
+
+/**
+ * Snap an angle (degrees) to the nearest 15° increment when shift is held,
+ * otherwise pass it through. Normalized into [0, 360).
+ */
+export function snapAngle(deg: number, snap: boolean): number {
+  const stepped = snap ? Math.round(deg / 15) * 15 : deg;
+  const normalized = ((stepped % 360) + 360) % 360;
+  return normalized;
+}

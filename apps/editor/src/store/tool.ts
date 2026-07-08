@@ -1,7 +1,17 @@
 import { create } from 'zustand';
 
 export type ToolId =
-  'select' | 'frame' | 'rectangle' | 'ellipse' | 'line' | 'pen' | 'text' | 'hand';
+  | 'select'
+  | 'frame'
+  | 'rectangle'
+  | 'ellipse'
+  | 'line'
+  | 'polygon'
+  | 'star'
+  | 'image'
+  | 'pen'
+  | 'text'
+  | 'hand';
 
 interface ToolState {
   tool: ToolId;

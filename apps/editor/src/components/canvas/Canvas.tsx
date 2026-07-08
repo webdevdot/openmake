@@ -5,6 +5,7 @@ import { getWorldBounds, hitTest, type OpenDoc } from '@openmake/core';
 import { useToolStore } from '../../store/tool.js';
 import { useSelectionStore } from '../../store/selection.js';
 import { useCameraStore } from '../../store/camera.js';
+import { useImageStore } from '../../store/images.js';
 import { screenToWorld, zoomByFactor, panBy, type Camera } from '../../canvas/camera.js';
 import { RenderLoop } from '../../canvas/render-loop.js';
 import { loadEditorFonts } from '../../canvas/fonts.js';
@@ -74,6 +75,7 @@ export function Canvas({ doc, pageId, onCursorMoveWorld }: CanvasProps) {
           doc,
           () => pageId,
           () => cameraRef.current,
+          () => useImageStore.getState().images,
         );
         setReady(true);
       } catch (err) {

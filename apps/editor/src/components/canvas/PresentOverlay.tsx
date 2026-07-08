@@ -9,6 +9,8 @@ export interface PresentOverlayProps {
   pageId: string;
   startFrameId: string;
   onExit: () => void;
+  /** assetId → decoded image bytes for IMAGE paints, owned by the editor. */
+  images?: Record<string, Uint8Array>;
 }
 
 /** Breathing room between the presented frame and the viewport edges (px per side). */
@@ -20,7 +22,7 @@ function presentCamera(doc: OpenDoc, frameId: string, viewport: { width: number;
 }
 
 /** Full-screen prototype presentation: renders a frame, hotspots navigate via reactions. */
-export function PresentOverlay({ doc, pageId, startFrameId, onExit }: PresentOverlayProps) {
+export function PresentOverlay({ doc, pageId, startFrameId, onExit, images }: PresentOverlayProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const rendererRef = useRef<Renderer | null>(null);
   const [currentFrameId, setCurrentFrameId] = useState(startFrameId);
@@ -66,7 +68,7 @@ export function PresentOverlay({ doc, pageId, startFrameId, onExit }: PresentOve
     canvas.width = Math.round(width * dpr);
     canvas.height = Math.round(height * dpr);
     renderer.resize(width, height, dpr);
-    const scene = buildRenderScene(doc, pageId);
+    const scene = buildRenderScene(doc, pageId, images);
     const camera = presentCamera(doc, currentFrameId, { width, height });
     renderer.render(scene, camera);
   };

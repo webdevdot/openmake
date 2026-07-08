@@ -19,8 +19,16 @@ export interface RenderScene {
 /**
  * Build a RenderScene from a live document page: expands INSTANCE nodes via
  * resolveInstance, skips invisible nodes (and their subtrees).
+ *
+ * `images` maps assetId → decoded bytes for IMAGE paints. AssetRef in the doc
+ * stores only a content hash, so the actual pixels are supplied by the caller
+ * (the editor holds a client-side bytes cache keyed by assetId).
  */
-export function buildRenderScene(doc: OpenDoc, pageId: string): RenderScene {
+export function buildRenderScene(
+  doc: OpenDoc,
+  pageId: string,
+  images?: Record<string, Uint8Array>,
+): RenderScene {
   const page = doc.getNode(pageId);
   if (!page || page.type !== 'PAGE') {
     throw new Error(`Node "${pageId}" is not a page`);
@@ -76,5 +84,5 @@ export function buildRenderScene(doc: OpenDoc, pageId: string): RenderScene {
     if (resultId) rootIds.push(resultId);
   }
 
-  return { nodes, rootIds, backgroundColor: page.backgroundColor };
+  return { nodes, rootIds, images, backgroundColor: page.backgroundColor };
 }

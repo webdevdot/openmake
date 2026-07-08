@@ -306,6 +306,173 @@ describe('components & instances', () => {
   });
 });
 
+describe('group / ungroup', () => {
+  it('wraps siblings in a GROUP and reparents them', () => {
+    const { doc, pageId } = newDocWithPage();
+    const a = doc.createNode({ type: 'RECTANGLE', parentId: pageId, x: 10, y: 10, width: 20, height: 20 });
+    const b = doc.createNode({ type: 'RECTANGLE', parentId: pageId, x: 60, y: 40, width: 20, height: 20 });
+    const groupId = doc.groupNodes([a, b]);
+
+    expect(doc.getNode(groupId)?.type).toBe('GROUP');
+    expect(doc.getParentId(groupId)).toBe(pageId);
+    expect(doc.getParentId(a)).toBe(groupId);
+    expect(doc.getParentId(b)).toBe(groupId);
+    expect(doc.getChildrenIds(groupId)).toEqual([a, b]);
+    expect(doc.getChildrenIds(pageId)).toEqual([groupId]);
+  });
+
+  it('sizes the group to the union of member world bounds', () => {
+    const { doc, pageId } = newDocWithPage();
+    const a = doc.createNode({ type: 'RECTANGLE', parentId: pageId, x: 10, y: 10, width: 20, height: 20 });
+    const b = doc.createNode({ type: 'RECTANGLE', parentId: pageId, x: 60, y: 40, width: 20, height: 20 });
+    const groupId = doc.groupNodes([a, b]);
+    // Union of [10,10..30,30] and [60,40..80,60] -> origin (10,10), size 70x50.
+    expect(getWorldBounds(doc, groupId)).toEqual({ x: 10, y: 10, width: 70, height: 50 });
+  });
+
+  it('preserves each member world position when grouping', () => {
+    const { doc, pageId } = newDocWithPage();
+    const a = doc.createNode({ type: 'RECTANGLE', parentId: pageId, x: 10, y: 10, width: 20, height: 20 });
+    const b = doc.createNode({ type: 'RECTANGLE', parentId: pageId, x: 60, y: 40, width: 20, height: 20 });
+    const beforeA = getWorldBounds(doc, a);
+    const beforeB = getWorldBounds(doc, b);
+    doc.groupNodes([a, b]);
+    expect(getWorldBounds(doc, a)).toEqual(beforeA);
+    expect(getWorldBounds(doc, b)).toEqual(beforeB);
+  });
+
+  it('groups within a transformed parent frame without shifting members', () => {
+    const { doc, pageId } = newDocWithPage();
+    const frame = doc.createNode({ type: 'FRAME', parentId: pageId, x: 100, y: 50 });
+    const a = doc.createNode({ type: 'RECTANGLE', parentId: frame, x: 10, y: 10, width: 20, height: 20 });
+    const b = doc.createNode({ type: 'RECTANGLE', parentId: frame, x: 40, y: 30, width: 20, height: 20 });
+    const beforeA = getWorldBounds(doc, a);
+    const beforeB = getWorldBounds(doc, b);
+    const groupId = doc.groupNodes([a, b]);
+    expect(doc.getParentId(groupId)).toBe(frame);
+    expect(getWorldBounds(doc, a)).toEqual(beforeA);
+    expect(getWorldBounds(doc, b)).toEqual(beforeB);
+  });
+
+  it('keeps member z-order regardless of selection order', () => {
+    const { doc, pageId } = newDocWithPage();
+    const a = doc.createNode({ type: 'RECTANGLE', parentId: pageId });
+    const b = doc.createNode({ type: 'RECTANGLE', parentId: pageId });
+    const c = doc.createNode({ type: 'RECTANGLE', parentId: pageId });
+    // Select out of document order; group must restore z-order a,b,c.
+    const groupId = doc.groupNodes([c, a, b]);
+    expect(doc.getChildrenIds(groupId)).toEqual([a, b, c]);
+  });
+
+  it('inserts the group at the topmost member slot, keeping siblings stacked', () => {
+    const { doc, pageId } = newDocWithPage();
+    const back = doc.createNode({ type: 'RECTANGLE', parentId: pageId });
+    const a = doc.createNode({ type: 'RECTANGLE', parentId: pageId });
+    const b = doc.createNode({ type: 'RECTANGLE', parentId: pageId });
+    const front = doc.createNode({ type: 'RECTANGLE', parentId: pageId });
+    const groupId = doc.groupNodes([a, b]);
+    // back stays below, front stays above; group takes the topmost member's slot.
+    expect(doc.getChildrenIds(pageId)).toEqual([back, groupId, front]);
+  });
+
+  it('rejects grouping an empty selection', () => {
+    const { doc } = newDocWithPage();
+    expect(() => doc.groupNodes([])).toThrow(/empty selection/i);
+  });
+
+  it('rejects grouping nodes with different parents', () => {
+    const { doc, pageId } = newDocWithPage();
+    const f1 = doc.createNode({ type: 'FRAME', parentId: pageId });
+    const f2 = doc.createNode({ type: 'FRAME', parentId: pageId });
+    const a = doc.createNode({ type: 'RECTANGLE', parentId: f1 });
+    const b = doc.createNode({ type: 'RECTANGLE', parentId: f2 });
+    expect(() => doc.groupNodes([a, b])).toThrow(/same parent/i);
+  });
+
+  it('ungroup dissolves the group and reparents children into its slot', () => {
+    const { doc, pageId } = newDocWithPage();
+    const a = doc.createNode({ type: 'RECTANGLE', parentId: pageId, x: 10, y: 10, width: 20, height: 20 });
+    const b = doc.createNode({ type: 'RECTANGLE', parentId: pageId, x: 60, y: 40, width: 20, height: 20 });
+    const groupId = doc.groupNodes([a, b]);
+
+    const freed = doc.ungroupNodes(groupId);
+    expect(freed).toEqual([a, b]);
+    expect(doc.getNode(groupId)).toBeUndefined();
+    expect(doc.getParentId(a)).toBe(pageId);
+    expect(doc.getParentId(b)).toBe(pageId);
+    expect(doc.getChildrenIds(pageId)).toEqual([a, b]);
+  });
+
+  it('preserves member world positions across a group -> ungroup round trip', () => {
+    const { doc, pageId } = newDocWithPage();
+    const frame = doc.createNode({ type: 'FRAME', parentId: pageId, x: 100, y: 50 });
+    const a = doc.createNode({ type: 'RECTANGLE', parentId: frame, x: 10, y: 10, width: 20, height: 20 });
+    const b = doc.createNode({ type: 'RECTANGLE', parentId: frame, x: 40, y: 30, width: 20, height: 20 });
+    const beforeA = getWorldBounds(doc, a);
+    const beforeB = getWorldBounds(doc, b);
+    const groupId = doc.groupNodes([a, b]);
+    doc.ungroupNodes(groupId);
+    expect(doc.getParentId(a)).toBe(frame);
+    expect(getWorldBounds(doc, a)).toEqual(beforeA);
+    expect(getWorldBounds(doc, b)).toEqual(beforeB);
+  });
+
+  it('ungroup restores children into the group\'s stacking slot', () => {
+    const { doc, pageId } = newDocWithPage();
+    const back = doc.createNode({ type: 'RECTANGLE', parentId: pageId });
+    const a = doc.createNode({ type: 'RECTANGLE', parentId: pageId });
+    const b = doc.createNode({ type: 'RECTANGLE', parentId: pageId });
+    const front = doc.createNode({ type: 'RECTANGLE', parentId: pageId });
+    const groupId = doc.groupNodes([a, b]);
+    doc.ungroupNodes(groupId);
+    expect(doc.getChildrenIds(pageId)).toEqual([back, a, b, front]);
+  });
+
+  it('rejects ungrouping a node without a parent', () => {
+    const { doc } = newDocWithPage();
+    expect(() => doc.ungroupNodes(doc.rootId)).toThrow(/no parent/i);
+  });
+
+  it('rejects ungrouping a node that does not exist', () => {
+    const { doc } = newDocWithPage();
+    expect(() => doc.ungroupNodes('node_missing')).toThrow(/does not exist/i);
+  });
+
+  it('groups as a single undoable step', () => {
+    const { doc, pageId } = newDocWithPage();
+    const a = doc.createNode({ type: 'RECTANGLE', parentId: pageId });
+    const b = doc.createNode({ type: 'RECTANGLE', parentId: pageId });
+    doc.commitUndoGroup(); // isolate the group op from the node creations
+    const groupId = doc.groupNodes([a, b]);
+
+    doc.undo();
+    expect(doc.getNode(groupId)).toBeUndefined();
+    expect(doc.getChildrenIds(pageId)).toEqual([a, b]);
+    expect(doc.getParentId(a)).toBe(pageId);
+
+    doc.redo();
+    expect(doc.getNode(groupId)?.type).toBe('GROUP');
+    expect(doc.getChildrenIds(groupId)).toEqual([a, b]);
+  });
+
+  it('ungroups as a single undoable step', () => {
+    const { doc, pageId } = newDocWithPage();
+    const a = doc.createNode({ type: 'RECTANGLE', parentId: pageId });
+    const b = doc.createNode({ type: 'RECTANGLE', parentId: pageId });
+    const groupId = doc.groupNodes([a, b]);
+    doc.commitUndoGroup();
+    doc.ungroupNodes(groupId);
+
+    doc.undo();
+    expect(doc.getNode(groupId)?.type).toBe('GROUP');
+    expect(doc.getChildrenIds(groupId)).toEqual([a, b]);
+
+    doc.redo();
+    expect(doc.getNode(groupId)).toBeUndefined();
+    expect(doc.getChildrenIds(pageId)).toEqual([a, b]);
+  });
+});
+
 describe('variables and styles', () => {
   it('stores and retrieves variables', () => {
     const { doc } = newDocWithPage();

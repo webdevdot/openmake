@@ -10,6 +10,7 @@ import { useAwareness } from '../hooks/useAwareness.js';
 import { useSelectionStore } from '../store/selection.js';
 import { useToolStore } from '../store/tool.js';
 import { useCameraStore } from '../store/camera.js';
+import { useImageStore } from '../store/images.js';
 import { clampZoom, zoomByFactor } from '../canvas/camera.js';
 import { resolveShortcut } from '../lib/shortcuts.js';
 import { duplicateOffset } from '../lib/duplicate.js';
@@ -141,7 +142,7 @@ export function EditorPage() {
   const handleExportPNG = async (nodeId: string, scale: 1 | 2) => {
     if (!session || !activePageId) return;
     const renderer = await createCanvasKitRenderer({ surface: 'offscreen' });
-    const scene = buildRenderScene(session.doc, activePageId);
+    const scene = buildRenderScene(session.doc, activePageId, useImageStore.getState().images);
     const bytes = await renderer.exportPNG(scene, { nodeId, scale });
     downloadBytes(bytes, `${session.doc.getNode(nodeId)?.name ?? 'export'}.png`, 'image/png');
     renderer.dispose();
@@ -149,7 +150,7 @@ export function EditorPage() {
 
   const handleExportSVG = (nodeId: string) => {
     if (!session || !activePageId) return;
-    const scene = buildRenderScene(session.doc, activePageId);
+    const scene = buildRenderScene(session.doc, activePageId, useImageStore.getState().images);
     const svg = exportSVG(scene, { nodeId });
     downloadText(svg, `${session.doc.getNode(nodeId)?.name ?? 'export'}.svg`, 'image/svg+xml');
   };
@@ -221,6 +222,7 @@ export function EditorPage() {
           pageId={activePageId}
           startFrameId={presenting}
           onExit={() => setPresenting(null)}
+          images={useImageStore.getState().images}
         />
       )}
     </div>

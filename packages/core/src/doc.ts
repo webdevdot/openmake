@@ -14,6 +14,7 @@ import {
   type Style,
   type Variable,
 } from '@openmake/shared';
+import { applyMatrix, getWorldBounds, getWorldMatrix, invert } from './geometry.js';
 
 /** Origin tag for local transactions — the only origin tracked by undo. */
 export const LOCAL_ORIGIN = 'openmake:local';
@@ -297,6 +298,124 @@ export class OpenDoc {
       children.insert(clamped, [id]);
       yNode.set('parentId', newParentId);
     });
+  }
+
+  // -------------------------------------------------------------------------
+  // Grouping
+  // -------------------------------------------------------------------------
+
+  /**
+   * Wrap the given nodes in a new GROUP, preserving each node's on-screen
+   * position and the selection's z-order. All ids must share the same parent.
+   * Returns the new group's id. Runs as a single transaction (one undo step).
+   */
+  groupNodes(ids: string[]): string {
+    const [first] = ids;
+    if (first === undefined) throw new Error('Cannot group an empty selection');
+
+    // Validate existence and a shared parent (grouping across parents is undefined).
+    const parentId = this.getParentId(first);
+    if (!parentId) throw new Error(`Node "${first}" has no parent and cannot be grouped`);
+    for (const id of ids) {
+      if (!this.nodes.has(id)) throw new Error(`Node "${id}" does not exist`);
+      if (this.getParentId(id) !== parentId) {
+        throw new Error('All nodes must share the same parent to be grouped');
+      }
+    }
+
+    // Sort by document order (z-order); selectedIds arrives in selection order.
+    const siblingOrder = this.getChildrenIds(parentId);
+    const ordered = [...new Set(ids)].sort(
+      (a, b) => siblingOrder.indexOf(a) - siblingOrder.indexOf(b),
+    );
+
+    // Group frame = union of the members' world-space bounding boxes.
+    let minX = Infinity;
+    let minY = Infinity;
+    let maxX = -Infinity;
+    let maxY = -Infinity;
+    for (const id of ordered) {
+      const b = getWorldBounds(this, id);
+      minX = Math.min(minX, b.x);
+      minY = Math.min(minY, b.y);
+      maxX = Math.max(maxX, b.x + b.width);
+      maxY = Math.max(maxY, b.y + b.height);
+    }
+
+    // World -> local for the group's parent, so the group sits at the union origin
+    // regardless of the parent's own transform.
+    const parentWorld = getWorldMatrix(this, parentId);
+    const parentInv = invert(parentWorld);
+    const groupLocal = applyMatrix(parentInv, { x: minX, y: minY });
+
+    // Insert the group at the index of the topmost (last) member so stacking is kept.
+    const insertIndex = Math.max(...ordered.map((id) => siblingOrder.indexOf(id))) + 1;
+
+    const groupId = createId('node');
+    const group = SceneNodeSchema.parse({
+      id: groupId,
+      name: DEFAULT_NAMES.GROUP,
+      type: 'GROUP',
+      x: groupLocal.x,
+      y: groupLocal.y,
+      width: maxX - minX,
+      height: maxY - minY,
+    });
+
+    this.transact(() => {
+      this.insertNodeRaw(group, parentId, insertIndex);
+      const groupInv = invert(getWorldMatrix(this, groupId));
+      for (const id of ordered) {
+        // Capture the child's current world origin BEFORE detaching.
+        const childWorld = getWorldMatrix(this, id);
+        const worldOrigin = applyMatrix(childWorld, { x: 0, y: 0 });
+        const local = applyMatrix(groupInv, worldOrigin);
+        this.detachFromParent(id);
+        this.insertNodeRaw(this.getNode(id)!, groupId);
+        const yNode = this.nodes.get(id)!;
+        yNode.set('parentId', groupId);
+        yNode.set('x', local.x);
+        yNode.set('y', local.y);
+      }
+    });
+    return groupId;
+  }
+
+  /**
+   * Dissolve a GROUP, reparenting its children back into the group's parent at
+   * the group's position (preserving each child's on-screen position and the
+   * z-order), then deleting the now-empty group. Returns the freed child ids.
+   * Runs as a single transaction (one undo step).
+   */
+  ungroupNodes(groupId: string): string[] {
+    const yGroup = this.nodes.get(groupId);
+    if (!yGroup) throw new Error(`Node "${groupId}" does not exist`);
+    const parentId = this.getParentId(groupId);
+    if (!parentId) throw new Error(`Node "${groupId}" has no parent and cannot be ungrouped`);
+
+    const childIds = this.getChildrenIds(groupId);
+    const siblingOrder = this.getChildrenIds(parentId);
+    const groupIndex = siblingOrder.indexOf(groupId);
+    const parentInv = invert(getWorldMatrix(this, parentId));
+
+    this.transact(() => {
+      // Splice children into the parent at the group's slot, keeping their order.
+      childIds.forEach((id, offset) => {
+        const childWorld = getWorldMatrix(this, id);
+        const worldOrigin = applyMatrix(childWorld, { x: 0, y: 0 });
+        const local = applyMatrix(parentInv, worldOrigin);
+        this.detachFromParent(id);
+        this.insertNodeRaw(this.getNode(id)!, parentId, groupIndex + offset);
+        const yNode = this.nodes.get(id)!;
+        yNode.set('parentId', parentId);
+        yNode.set('x', local.x);
+        yNode.set('y', local.y);
+      });
+      // The group is now empty; remove it.
+      this.detachFromParent(groupId);
+      this.nodes.delete(groupId);
+    });
+    return childIds;
   }
 
   // -------------------------------------------------------------------------
