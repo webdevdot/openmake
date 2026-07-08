@@ -46,4 +46,15 @@ describe('FileRepo', () => {
     const files = await ctx.db.files.listByProject(projectId);
     expect(files.map((f) => f.id)).toContain(file.id);
   });
+
+  it('listDeletedByProject returns only soft-deleted files', async () => {
+    const kept = await ctx.db.files.create({ projectId, name: 'Kept.design' });
+    const trashed = await ctx.db.files.create({ projectId, name: 'Trashed.design' });
+    await ctx.db.files.softDelete(trashed.id);
+
+    const deleted = await ctx.db.files.listDeletedByProject(projectId);
+    const ids = deleted.map((f) => f.id);
+    expect(ids).toContain(trashed.id);
+    expect(ids).not.toContain(kept.id);
+  });
 });
