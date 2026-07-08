@@ -26,3 +26,4 @@
 - [2026-07-08 UI3 chrome parity + URL/router deep links](../tasks/2026-07-08-ui3-chrome-and-router.md) — FEATURE ×2 via ultracode (Opus agents); right-panel header, toolbar flyouts, slug + node-id/page params
 - [2026-07-08 Left-rail panels: Agents/Assets/Tools/Variables v1](../tasks/2026-07-08-rail-panels.md) — FEATURE ×3 via ultracode (Opus agents); all 5 rail items now real; cross-agent API break caught+fixed in union
 - [2026-07-08 Variables table+aliasing / Dashboard parity](../tasks/2026-07-08-variables-table-and-dashboard.md) — FEATURE ×2 via ultracode (Opus agents); Figma-parity variables editor, real thumbnails, trash/restore routes
+- [2026-07-09 Figma screens via official Figma MCP](../tasks/2026-07-09-figma-screens-via-mcp.md) — 5 UI frames authored into the user's Figma drafts (spec fan-out → serialized author); file PMloOsqedH896CVnQ83avE
