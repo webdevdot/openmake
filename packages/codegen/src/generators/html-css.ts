@@ -4,6 +4,7 @@ import { toPascalCase } from '../naming.js';
 import { computeBoxStyle, computeTextStyle } from '../style-model.js';
 import { computeAbsolutePosition, computeFlexLayout } from '../layout-model.js';
 import { isContainerNode, resolveAllTrees, type ResolvedTree } from '../tree.js';
+import { cssKeyframesFor } from '../animation.js';
 
 interface RenderState {
   rules: string[];
@@ -13,6 +14,18 @@ interface RenderState {
 function nextClass(state: RenderState, hint: string): string {
   state.counter.n += 1;
   return `${hint}-${state.counter.n}`;
+}
+
+/**
+ * If `node` carries an animation, append its `@keyframes` + `.<name>` rule to
+ * the stylesheet and return the animation class to add to the element, so a
+ * designed motion ships straight to the exported CSS. Returns `''` otherwise.
+ */
+function animationClass(state: RenderState, node: SceneNode, elementClass: string): string {
+  if (!node.animation) return '';
+  const animName = `${elementClass}-anim`;
+  state.rules.push(cssKeyframesFor(animName, node.animation));
+  return ` ${animName}`;
 }
 
 function cssBlock(className: string, css: Record<string, string>): string {
@@ -38,21 +51,24 @@ function renderNode(
     const className = nextClass(state, 'text');
     if (Object.keys(css).length > 0) state.rules.push(cssBlock(className, css));
     const tag = node.characters.includes('\n') ? 'p' : 'span';
-    return `${pad}<${tag} class="${className}">${escapeHtml(node.characters)}</${tag}>`;
+    const anim = animationClass(state, node, className);
+    return `${pad}<${tag} class="${className}${anim}">${escapeHtml(node.characters)}</${tag}>`;
   }
 
   if (node.type === 'ELLIPSE') {
     const box = computeBoxStyle(node);
     const className = nextClass(state, 'ellipse');
     state.rules.push(cssBlock(className, { 'border-radius': '9999px', ...box.css }));
-    return `${pad}<div class="${className}"></div>`;
+    const anim = animationClass(state, node, className);
+    return `${pad}<div class="${className}${anim}"></div>`;
   }
 
   if (node.type === 'RECTANGLE' || node.type === 'VECTOR') {
     const box = computeBoxStyle(node);
     const className = nextClass(state, node.type === 'RECTANGLE' ? 'rect' : 'vector');
     if (Object.keys(box.css).length > 0) state.rules.push(cssBlock(className, box.css));
-    return `${pad}<div class="${className}"></div>`;
+    const anim = animationClass(state, node, className);
+    return `${pad}<div class="${className}${anim}"></div>`;
   }
 
   if (isContainerNode(node)) {
@@ -70,6 +86,7 @@ function renderNode(
 
     const className = nextClass(state, 'container');
     if (Object.keys(css).length > 0) state.rules.push(cssBlock(className, css));
+    const anim = animationClass(state, node, className);
 
     const childLines = children.map((child) => {
       if (autoLayout) return renderNode(tree, child, pad + '  ', true, state);
@@ -84,8 +101,8 @@ function renderNode(
       return `${pad}  <div class="${wrapClass}">\n${inner}\n${pad}  </div>`;
     });
 
-    if (children.length === 0) return `${pad}<div class="${className}"></div>`;
-    return `${pad}<div class="${className}">\n${childLines.join('\n')}\n${pad}</div>`;
+    if (children.length === 0) return `${pad}<div class="${className}${anim}"></div>`;
+    return `${pad}<div class="${className}${anim}">\n${childLines.join('\n')}\n${pad}</div>`;
   }
 
   return `${pad}<div></div>`;

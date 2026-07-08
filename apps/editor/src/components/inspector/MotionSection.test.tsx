@@ -1,5 +1,5 @@
 import { fireEvent, render, screen } from '@testing-library/react';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { OpenDoc } from '@openmake/core';
 import type { NodeAnimation } from '@openmake/shared';
 import { MotionSection } from './MotionSection.js';
@@ -118,6 +118,40 @@ describe('MotionSection', () => {
 
     expect(useAnimationStore.getState().playing).toBeNull();
     expect(useAnimationStore.getState().overrides).toEqual({});
+  });
+
+  it('Copy CSS writes generated @keyframes to the clipboard', async () => {
+    const writeText = vi.fn().mockResolvedValue(undefined);
+    // Clipboard is absent under happy-dom; install a mock for this test.
+    Object.defineProperty(navigator, 'clipboard', {
+      value: { writeText },
+      configurable: true,
+    });
+
+    const { doc, rectId } = newRect();
+    const { rerender } = render(<MotionSection doc={doc} node={doc.getNode(rectId)!} />);
+    fireEvent.click(screen.getByTestId('motion-add-button'));
+    rerender(<MotionSection doc={doc} node={doc.getNode(rectId)!} />);
+
+    fireEvent.click(screen.getByTestId('motion-copy-css-button'));
+
+    expect(writeText).toHaveBeenCalledTimes(1);
+    const written = writeText.mock.calls[0]![0] as string;
+    expect(written).toContain('@keyframes');
+    expect(written).toContain('animation:');
+    expect(written).toContain('none;'); // fill-mode none
+
+    Reflect.deleteProperty(navigator, 'clipboard');
+  });
+
+  it('Copy CSS does not throw when the clipboard API is unavailable', () => {
+    Reflect.deleteProperty(navigator, 'clipboard');
+    const { doc, rectId } = newRect();
+    const { rerender } = render(<MotionSection doc={doc} node={doc.getNode(rectId)!} />);
+    fireEvent.click(screen.getByTestId('motion-add-button'));
+    rerender(<MotionSection doc={doc} node={doc.getNode(rectId)!} />);
+
+    expect(() => fireEvent.click(screen.getByTestId('motion-copy-css-button'))).not.toThrow();
   });
 
   it('Remove deletes the animation from the node', () => {

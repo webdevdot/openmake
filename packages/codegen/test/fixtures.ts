@@ -145,6 +145,31 @@ export function pascalCaseNamingFixture(): DesignContext {
   return contextFor(root);
 }
 
+/** Rectangle carrying a single-track opacity fade animation. */
+export function animatedNodeFixture(): DesignContext {
+  const root = node({
+    id: 'rect_anim',
+    type: 'RECTANGLE',
+    name: 'Animated Rect',
+    width: 100,
+    height: 100,
+    fills: [{ type: 'SOLID', color: { r: 1, g: 0, b: 0, a: 1 }, opacity: 1, visible: true }],
+    animation: {
+      duration: 300,
+      tracks: [
+        {
+          property: 'opacity',
+          keyframes: [
+            { time: 0, value: 0, easing: 'linear' },
+            { time: 300, value: 1, easing: 'linear' },
+          ],
+        },
+      ],
+    },
+  });
+  return contextFor(root);
+}
+
 /** Frame with a linear gradient fill. */
 export function gradientFixture(): DesignContext {
   const root = node({
