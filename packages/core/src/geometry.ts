@@ -91,6 +91,25 @@ export function getWorldBounds(doc: OpenDoc, id: string): Bounds {
   return { x: minX, y: minY, width: Math.max(...xs) - minX, height: Math.max(...ys) - minY };
 }
 
+/** Default snap grid: 1 unit = integer-pixel snapping (Figma's default pixel-snap). */
+export const DEFAULT_GRID = 1;
+
+/**
+ * Snap a scalar to the nearest multiple of `grid`, offset by `origin`.
+ * `grid <= 0` is a no-op (returns the value unchanged) so callers can pass a
+ * disabled/zero grid safely. `origin` lets a grid be phase-shifted (e.g. to a
+ * frame's top-left) — defaults to 0 (document origin).
+ */
+export function snapToGrid(value: number, grid: number = DEFAULT_GRID, origin = 0): number {
+  if (!(grid > 0)) return value;
+  return Math.round((value - origin) / grid) * grid + origin;
+}
+
+/** Snap a point's x and y to the grid independently. See {@link snapToGrid}. */
+export function snapPointToGrid(p: Vec2, grid: number = DEFAULT_GRID, origin: Vec2 = { x: 0, y: 0 }): Vec2 {
+  return { x: snapToGrid(p.x, grid, origin.x), y: snapToGrid(p.y, grid, origin.y) };
+}
+
 const SELF_HITTABLE_CONTAINERS = new Set(['FRAME', 'COMPONENT', 'COMPONENT_SET', 'INSTANCE']);
 
 /** Regular polygon inscribed in a `width`×`height` box, point-up, clockwise. Shared by hit-testing and the renderer's path builder. */

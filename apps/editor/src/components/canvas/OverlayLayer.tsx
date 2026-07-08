@@ -1,6 +1,12 @@
 import { useEffect, useRef, useState } from 'react';
 import type { RefObject } from 'react';
-import type { Bounds, OpenDoc } from '@openmake/core';
+import {
+  resolveSnap,
+  type Bounds,
+  type OpenDoc,
+  type SnapCandidateBox,
+  type SnapGuide,
+} from '@openmake/core';
 import { worldToScreen, type Camera } from '../../canvas/camera.js';
 import {
   handlePositions,
@@ -10,6 +16,7 @@ import {
   snapAngle,
   type HandleId,
 } from '../../canvas/handles.js';
+import { SNAP_THRESHOLD_PX, toCandidate } from '../../canvas/snap-helpers.js';
 import type { Rect } from '../../canvas/marquee.js';
 import { useDocVersion } from '../../hooks/document.js';
 import { presenceLabelColor } from '../../lib/presence-color.js';
@@ -21,6 +28,8 @@ export interface OverlayLayerProps {
   selection: string[];
   cameraRef: RefObject<Camera>;
   marquee: Rect | null;
+  snapGuides: SnapGuide[];
+  setSnapGuides: (guides: SnapGuide[]) => void;
   getWorldBounds: (id: string) => Bounds;
 }
 
@@ -36,6 +45,8 @@ export function OverlayLayer({
   selection,
   cameraRef,
   marquee,
+  snapGuides,
+  setSnapGuides,
   getWorldBounds,
 }: OverlayLayerProps) {
   useDocVersion(doc);
@@ -113,11 +124,14 @@ export function OverlayLayer({
                 e.stopPropagation();
                 startResizeDrag(
                   doc,
+                  pageId,
                   singleSelectedId,
                   singleBounds,
                   handleId as HandleId,
                   camera,
                   e,
+                  setSnapGuides,
+                  getWorldBounds,
                 );
               }}
             />
@@ -164,6 +178,33 @@ export function OverlayLayer({
         />
       )}
 
+      {snapGuides.map((guide, i) => {
+        // axis 'x' → vertical line at world-x `position`, spanning y start→end.
+        // axis 'y' → horizontal line at world-y `position`, spanning x start→end.
+        const a =
+          guide.axis === 'x'
+            ? worldToScreen(camera, { x: guide.position, y: guide.start })
+            : worldToScreen(camera, { x: guide.start, y: guide.position });
+        const b =
+          guide.axis === 'x'
+            ? worldToScreen(camera, { x: guide.position, y: guide.end })
+            : worldToScreen(camera, { x: guide.end, y: guide.position });
+        return (
+          <div
+            key={`snap-guide-${i}`}
+            data-testid={`snap-guide-${guide.axis}-${i}`}
+            className="absolute"
+            style={{
+              left: Math.min(a.x, b.x),
+              top: Math.min(a.y, b.y),
+              width: guide.axis === 'x' ? 1 : Math.abs(b.x - a.x),
+              height: guide.axis === 'x' ? Math.abs(b.y - a.y) : 1,
+              backgroundColor: 'var(--color-snap-guide, #f24d99)',
+            }}
+          />
+        );
+      })}
+
       {Object.entries(remoteCursors).map(([userId, state]) => {
         if (!state.cursor) return null;
         const screenPos = worldToScreen(camera, state.cursor);
@@ -207,24 +248,60 @@ function makeToWorld(camera: Camera, downEvent: React.PointerEvent) {
 
 function startResizeDrag(
   doc: OpenDoc,
+  pageId: string,
   nodeId: string,
   originalBounds: Bounds,
   handle: HandleId,
   camera: Camera,
   downEvent: React.PointerEvent,
+  setSnapGuides: (guides: SnapGuide[]) => void,
+  getWorldBounds: (id: string) => Bounds,
 ): void {
   const toWorld = makeToWorld(camera, downEvent);
   const startWorldPoint = toWorld(downEvent.clientX, downEvent.clientY);
 
+  // Which axes this handle actually drives — the same edge logic resizeBounds
+  // uses. Reading-1 axis gate: a resolveSnap adjustment is applied only on an
+  // axis the handle moves, so an east drag never nudges the anchored left edge.
+  const drivesX = handle === 'nw' || handle === 'w' || handle === 'sw' ||
+    handle === 'ne' || handle === 'e' || handle === 'se';
+  const drivesY = handle === 'nw' || handle === 'n' || handle === 'ne' ||
+    handle === 'sw' || handle === 's' || handle === 'se';
+
   const onMove = (e: PointerEvent) => {
     const currentWorld = toWorld(e.clientX, e.clientY);
     const delta = { x: currentWorld.x - startWorldPoint.x, y: currentWorld.y - startWorldPoint.y };
-    const next = resizeBounds(originalBounds, handle, delta, e.shiftKey);
+
+    // Resize once to get the dragged-edge bounds, then snap that box against
+    // siblings. resolveSnap returns a whole-box dx/dy; we keep it only on the
+    // driven axes and re-resize from the dragged edge with the corrected delta.
+    const dragged = resizeBounds(originalBounds, handle, delta, e.shiftKey);
+    const statics: SnapCandidateBox[] = [];
+    for (const id of doc.getChildrenIds(pageId)) {
+      if (id === nodeId) continue;
+      statics.push(toCandidate(getWorldBounds(id)));
+    }
+    const snap = resolveSnap(toCandidate(dragged), statics, {
+      grid: 0,
+      threshold: SNAP_THRESHOLD_PX / camera.zoom,
+    });
+
+    const dxSnap = drivesX ? snap.dx : 0;
+    const dySnap = drivesY ? snap.dy : 0;
+    const next = (dxSnap !== 0 || dySnap !== 0)
+      ? resizeBounds(originalBounds, handle, { x: delta.x + dxSnap, y: delta.y + dySnap }, e.shiftKey)
+      : dragged;
     doc.updateNode(nodeId, next as unknown as Record<string, unknown>);
+
+    // Only draw guides for snaps we actually applied (drop cross-axis guides).
+    setSnapGuides(
+      snap.guides.filter((g) => (g.axis === 'x' ? drivesX : drivesY)),
+    );
   };
   const onUp = () => {
     window.removeEventListener('pointermove', onMove);
     window.removeEventListener('pointerup', onUp);
+    setSnapGuides([]);
     doc.commitUndoGroup();
   };
   window.addEventListener('pointermove', onMove);
@@ -253,7 +330,9 @@ function startRotateDrag(
   const onMove = (e: PointerEvent) => {
     const currentPoint = toWorld(e.clientX, e.clientY);
     const currentAngle = rotationAngle(center, currentPoint);
-    const next = snapAngle(startRotation + (currentAngle - startAngle), e.shiftKey);
+    // Rotation snaps to 15° increments unconditionally (always-on detent);
+    // Shift no longer toggles this.
+    const next = snapAngle(startRotation + (currentAngle - startAngle), true);
     doc.updateNode(nodeId, { rotation: next });
   };
   const onUp = () => {
