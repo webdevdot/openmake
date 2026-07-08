@@ -29,3 +29,14 @@ export {
   type DistributeAxis,
   type FlipAxis,
 } from './align.js';
+export {
+  sampleAnimation,
+  stackAnimation,
+  fadeIn,
+  fadeOut,
+  rotate,
+  scaleIn,
+  scaleOut,
+  resize,
+  type PresetContext,
+} from './animation.js';

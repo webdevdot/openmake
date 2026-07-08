@@ -1,5 +1,13 @@
-import type { Color, SceneNode } from '@openmake/shared';
+import type { Color, SceneNode, TrackProperty } from '@openmake/shared';
 import { resolveInstance, type OpenDoc } from '@openmake/core';
+
+/**
+ * Per-node property overrides applied on top of the persisted node, keyed by
+ * node id. Used by motion playback to preview sampled animation values without
+ * writing them into the doc. Only plain numeric transform/opacity properties
+ * are overridable.
+ */
+export type SceneOverrides = Record<string, Partial<Record<TrackProperty, number>>>;
 
 export interface Camera {
   x: number;
@@ -23,11 +31,16 @@ export interface RenderScene {
  * `images` maps assetId → decoded bytes for IMAGE paints. AssetRef in the doc
  * stores only a content hash, so the actual pixels are supplied by the caller
  * (the editor holds a client-side bytes cache keyed by assetId).
+ *
+ * `overrides` maps nodeId → sampled numeric props (motion playback). Each match
+ * is merged on top of the persisted node for this frame only; the doc is never
+ * mutated. An overridden node's `visible` flag still gates whether it renders.
  */
 export function buildRenderScene(
   doc: OpenDoc,
   pageId: string,
   images?: Record<string, Uint8Array>,
+  overrides: SceneOverrides = {},
 ): RenderScene {
   const page = doc.getNode(pageId);
   if (!page || page.type !== 'PAGE') {
@@ -37,9 +50,16 @@ export function buildRenderScene(
   const nodes: Record<string, SceneNode> = {};
   const rootIds: string[] = [];
 
+  const applyOverride = (node: SceneNode): SceneNode => {
+    const patch = overrides[node.id];
+    if (!patch) return node;
+    return { ...node, ...patch } as SceneNode;
+  };
+
   const visit = (id: string): string | null => {
-    const node = doc.getNode(id);
-    if (!node || !node.visible) return null;
+    const raw = doc.getNode(id);
+    if (!raw || !raw.visible) return null;
+    const node = applyOverride(raw);
 
     if (node.type === 'INSTANCE') {
       const resolved = resolveInstance(doc, id);
@@ -57,8 +77,12 @@ export function buildRenderScene(
           const child = resolved.nodes[childId];
           return child?.visible;
         });
+        // Overrides are keyed by the instance's own id; the resolved root uses a
+        // synthetic id, so patch it explicitly rather than via applyOverride.
+        const rootPatch = overrides[id] ?? {};
         nodes[resolved.rootId] = {
           ...rootNode,
+          ...rootPatch,
           children: visibleChildren,
           visible: true,
         } as SceneNode;

@@ -10,6 +10,7 @@ import { AutoLayoutSection } from './AutoLayoutSection.js';
 import { TextSection } from './TextSection.js';
 import { ComponentSection } from './ComponentSection.js';
 import { InteractionSection } from './InteractionSection.js';
+import { MotionSection } from './MotionSection.js';
 import { ExportSection } from './ExportSection.js';
 import { PageInspector } from './PageInspector.js';
 
@@ -65,6 +66,7 @@ export function Inspector({ doc, pageId, onExportPNG, onExportSVG }: InspectorPr
         <ComponentSection doc={doc} node={node} />
       )}
       {canHaveInteraction && <InteractionSection doc={doc} node={node} pageId={pageId} />}
+      {canHaveInteraction && <MotionSection doc={doc} node={node} />}
       <ExportSection
         onExportPNG={(scale) => onExportPNG(node.id, scale)}
         onExportSVG={() => onExportSVG(node.id)}

@@ -1,4 +1,9 @@
-export { buildRenderScene, type Camera, type RenderScene } from './scene.js';
+export {
+  buildRenderScene,
+  type Camera,
+  type RenderScene,
+  type SceneOverrides,
+} from './scene.js';
 export {
   createCanvasKitRenderer,
   type CreateRendererOpts,
