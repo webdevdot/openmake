@@ -15,6 +15,7 @@ import {
   type Variable,
 } from '@openmake/shared';
 import { applyMatrix, getWorldBounds, getWorldMatrix, invert } from './geometry.js';
+import { parseVariantName } from './variants.js';
 
 /** Origin tag for local transactions — the only origin tracked by undo. */
 export const LOCAL_ORIGIN = 'openmake:local';
@@ -487,6 +488,92 @@ export class OpenDoc {
       width: component.width,
       height: component.height,
     });
+  }
+
+  /**
+   * Combine >= 2 COMPONENT nodes into a new COMPONENT_SET. Each component keeps
+   * its on-screen position (converted into the set's local frame) and z-order,
+   * and gets `variantProperties` parsed from its name (Figma's
+   * `Prop=Value` convention; names that don't parse fall back to
+   * `Variant=<name>`). The set is placed at the union bounding box of its
+   * members, in the members' shared parent. All ids must share one parent.
+   * Returns the new set's id. Runs as a single transaction (one undo step).
+   */
+  combineAsVariants(componentIds: string[]): string {
+    const ids = [...new Set(componentIds)];
+    if (ids.length < 2) {
+      throw new Error('Combine as variants needs at least two components');
+    }
+
+    const first = ids[0]!;
+    const parentId = this.getParentId(first);
+    if (!parentId) {
+      throw new Error(`Component "${first}" has no parent and cannot be combined`);
+    }
+    for (const id of ids) {
+      const node = this.getNode(id);
+      if (!node) throw new Error(`Node "${id}" does not exist`);
+      if (node.type !== 'COMPONENT') {
+        throw new Error(`Node "${id}" (${node.type}) is not a component`);
+      }
+      if (this.getParentId(id) !== parentId) {
+        throw new Error('All components must share the same parent to be combined');
+      }
+    }
+
+    // Order members by document z-order (selection order is arbitrary).
+    const siblingOrder = this.getChildrenIds(parentId);
+    const ordered = ids.sort((a, b) => siblingOrder.indexOf(a) - siblingOrder.indexOf(b));
+
+    // Set frame = union of members' world-space bounding boxes.
+    let minX = Infinity;
+    let minY = Infinity;
+    let maxX = -Infinity;
+    let maxY = -Infinity;
+    for (const id of ordered) {
+      const b = getWorldBounds(this, id);
+      minX = Math.min(minX, b.x);
+      minY = Math.min(minY, b.y);
+      maxX = Math.max(maxX, b.x + b.width);
+      maxY = Math.max(maxY, b.y + b.height);
+    }
+
+    // World -> parent-local, so the set sits at the union origin.
+    const parentInv = invert(getWorldMatrix(this, parentId));
+    const setLocal = applyMatrix(parentInv, { x: minX, y: minY });
+
+    // Insert the set at the topmost member's slot to keep stacking.
+    const insertIndex = Math.max(...ordered.map((id) => siblingOrder.indexOf(id))) + 1;
+
+    const setId = createId('node');
+    const set = SceneNodeSchema.parse({
+      id: setId,
+      name: DEFAULT_NAMES.COMPONENT_SET,
+      type: 'COMPONENT_SET',
+      x: setLocal.x,
+      y: setLocal.y,
+      width: maxX - minX,
+      height: maxY - minY,
+    });
+
+    this.transact(() => {
+      this.insertNodeRaw(set, parentId, insertIndex);
+      const setInv = invert(getWorldMatrix(this, setId));
+      for (const id of ordered) {
+        // Capture the component's world origin BEFORE reparenting.
+        const worldOrigin = applyMatrix(getWorldMatrix(this, id), { x: 0, y: 0 });
+        const local = applyMatrix(setInv, worldOrigin);
+        const { props } = parseVariantName(this.getNode(id)!.name);
+        this.detachFromParent(id);
+        this.insertNodeRaw(this.getNode(id)!, setId);
+        const yNode = this.nodes.get(id)!;
+        yNode.set('parentId', setId);
+        yNode.set('x', local.x);
+        yNode.set('y', local.y);
+        yNode.set('variantProperties', props);
+      }
+    });
+    return setId;
   }
 
   // -------------------------------------------------------------------------
