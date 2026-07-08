@@ -39,6 +39,9 @@ export const IMPORT_RATE_LIMIT_PER_MINUTE = 10;
 
 const ProjectIdParamsSchema = z.object({ projectId: z.string().min(1) });
 const FileIdParamsSchema = z.object({ fileId: z.string().min(1) });
+// `?deleted=1` (or `true`) switches the list route into "Trash" mode. Anything
+// else lists live files, so an accidental `?deleted=0` behaves like the default.
+const ListFilesQuerySchema = z.object({ deleted: z.enum(['1', 'true']).optional() });
 const CreateFileSchema = z.object({ name: z.string().min(1) });
 const ImportFileSchema = z.object({
   name: z.string().min(1).max(200),
@@ -76,6 +79,22 @@ export async function fileRoutes(app: FastifyInstance): Promise<void> {
     { preHandler: [app.authenticate, requireOrgRole('VIEWER', resolveOrgIdFromProjectParam)] },
     async (request) => {
       const { projectId } = parseOrThrow(ProjectIdParamsSchema, request.params);
+      const { deleted } = parseOrThrow(ListFilesQuerySchema, request.query);
+      if (deleted) {
+        // Trash listing is an EDITOR+ capability (it exposes recoverable work and
+        // pairs with the restore route) even though live listing is VIEWER+.
+        // requireOrgRole already confirmed membership and set request.orgId.
+        const canEdit = await app.db.orgs.hasAtLeastRole(
+          request.orgId!,
+          request.user!.id,
+          'EDITOR',
+        );
+        if (!canEdit) {
+          throw new HttpError(403, 'FORBIDDEN', 'Insufficient role for this action');
+        }
+        const files = await app.db.files.listDeletedByProject(projectId);
+        return { files };
+      }
       const files = await app.db.files.listByProject(projectId);
       return { files };
     },
@@ -224,6 +243,30 @@ export async function fileRoutes(app: FastifyInstance): Promise<void> {
       });
 
       reply.status(204);
+    },
+  );
+
+  app.post(
+    '/files/:fileId/restore',
+    { preHandler: [app.authenticate, requireOrgRole('EDITOR', resolveOrgIdFromFileParam)] },
+    async (request) => {
+      const { fileId } = parseOrThrow(FileIdParamsSchema, request.params);
+      const existing = await app.db.files.findById(fileId);
+      // A file that never existed, or one that isn't actually trashed, both 404 —
+      // restore is only meaningful for a soft-deleted file.
+      if (!existing || !existing.deletedAt) throw new HttpError(404, 'NOT_FOUND', 'File not found');
+      const file = await app.db.files.restore(fileId);
+
+      const orgId = await resolveOrgIdFromFile(app, fileId);
+      await app.db.audit.append({
+        orgId,
+        userId: request.user!.id,
+        action: 'file.restore',
+        targetType: 'file',
+        targetId: fileId,
+      });
+
+      return { file };
     },
   );
 

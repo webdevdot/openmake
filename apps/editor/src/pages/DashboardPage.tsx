@@ -1,10 +1,38 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import type { ChangeEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { orgsApi, projectsApi, filesApi } from '../api/endpoints.js';
 import type { FileMeta, Org, Project } from '../api/types.js';
 import { useAuthStore } from '../store/auth.js';
 import { slugify } from '../lib/slug.js';
+import { FileCard } from '../components/dashboard/FileCard.js';
+
+/** Left-nav virtual views that aren't a single project. */
+type View = { kind: 'project'; projectId: string } | { kind: 'recents' } | { kind: 'trash' };
+
+type SortMode = 'updated' | 'name';
+type LayoutMode = 'grid' | 'list';
+
+const RECENTS_CAP = 20;
+const LAYOUT_STORAGE_KEY = 'openmake.dashboard.layout';
+
+function readLayout(): LayoutMode {
+  try {
+    return localStorage.getItem(LAYOUT_STORAGE_KEY) === 'list' ? 'list' : 'grid';
+  } catch {
+    return 'grid';
+  }
+}
+
+function sortFiles(files: FileMeta[], mode: SortMode): FileMeta[] {
+  const copy = [...files];
+  if (mode === 'name') {
+    copy.sort((a, b) => a.name.localeCompare(b.name));
+  } else {
+    copy.sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime());
+  }
+  return copy;
+}
 
 export function DashboardPage() {
   const navigate = useNavigate();
@@ -12,10 +40,16 @@ export function DashboardPage() {
   const [orgs, setOrgs] = useState<Org[]>([]);
   const [activeOrgId, setActiveOrgId] = useState<string | null>(null);
   const [projects, setProjects] = useState<Project[]>([]);
-  const [activeProjectId, setActiveProjectId] = useState<string | null>(null);
+  const [view, setView] = useState<View>({ kind: 'recents' });
   const [files, setFiles] = useState<FileMeta[]>([]);
+  const [loadingFiles, setLoadingFiles] = useState(false);
+  const [search, setSearch] = useState('');
+  const [sortMode, setSortMode] = useState<SortMode>('updated');
+  const [layout, setLayout] = useState<LayoutMode>(readLayout);
   const [importing, setImporting] = useState(false);
   const figInputRef = useRef<HTMLInputElement | null>(null);
+
+  const activeProjectId = view.kind === 'project' ? view.projectId : null;
 
   useEffect(() => {
     void orgsApi.list().then((data) => {
@@ -28,17 +62,63 @@ export function DashboardPage() {
     if (!activeOrgId) return;
     void projectsApi.list(activeOrgId).then((data) => {
       setProjects(data);
-      setActiveProjectId(data[0]?.id ?? null);
+      // Land on Recents so the org's most recent work is visible immediately.
+      setView({ kind: 'recents' });
     });
   }, [activeOrgId]);
 
+  // Load the file list for the active view. Recents/Trash aggregate across all
+  // of the org's projects (no cross-project endpoint exists, so we fetch each
+  // project's list in parallel and merge client-side — fine at this scale).
   useEffect(() => {
-    if (!activeProjectId) {
+    let cancelled = false;
+    async function load() {
+      setLoadingFiles(true);
+      try {
+        if (view.kind === 'project') {
+          const list = await filesApi.list(view.projectId);
+          if (!cancelled) setFiles(list);
+        } else if (view.kind === 'recents') {
+          const lists = await Promise.all(projects.map((p) => filesApi.list(p.id)));
+          const merged = sortFiles(lists.flat(), 'updated').slice(0, RECENTS_CAP);
+          if (!cancelled) setFiles(merged);
+        } else {
+          const lists = await Promise.all(projects.map((p) => filesApi.listDeleted(p.id)));
+          if (!cancelled) setFiles(sortFiles(lists.flat(), 'updated'));
+        }
+      } catch {
+        if (!cancelled) setFiles([]);
+      } finally {
+        if (!cancelled) setLoadingFiles(false);
+      }
+    }
+    // Recents/Trash need the project list first.
+    if (view.kind !== 'project' && projects.length === 0) {
       setFiles([]);
+      setLoadingFiles(false);
       return;
     }
-    void filesApi.list(activeProjectId).then(setFiles);
-  }, [activeProjectId]);
+    void load();
+    return () => {
+      cancelled = true;
+    };
+  }, [view, projects]);
+
+  const setLayoutMode = (mode: LayoutMode) => {
+    setLayout(mode);
+    try {
+      localStorage.setItem(LAYOUT_STORAGE_KEY, mode);
+    } catch {
+      // localStorage may be unavailable (private mode); the preference just won't persist.
+    }
+  };
+
+  const visibleFiles = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    const filtered = q ? files.filter((f) => f.name.toLowerCase().includes(q)) : files;
+    // Recents already comes pre-sorted by recency and capped; keep that order.
+    return view.kind === 'recents' ? filtered : sortFiles(filtered, sortMode);
+  }, [files, search, sortMode, view.kind]);
 
   const createProject = async () => {
     if (!activeOrgId) return;
@@ -46,7 +126,7 @@ export function DashboardPage() {
     if (!name) return;
     const project = await projectsApi.create(activeOrgId, name);
     setProjects((prev) => [...prev, project]);
-    setActiveProjectId(project.id);
+    setView({ kind: 'project', projectId: project.id });
   };
 
   const createFile = async () => {
@@ -57,6 +137,16 @@ export function DashboardPage() {
     if (name === null) return;
     const file = await filesApi.create(activeProjectId, name.trim() || 'Untitled');
     navigate(`/file/${file.id}/${slugify(file.name)}`);
+  };
+
+  const trashFile = async (fileId: string) => {
+    await filesApi.delete(fileId);
+    setFiles((prev) => prev.filter((f) => f.id !== fileId));
+  };
+
+  const restoreFile = async (fileId: string) => {
+    await filesApi.restore(fileId);
+    setFiles((prev) => prev.filter((f) => f.id !== fileId));
   };
 
   const importFig = async (e: ChangeEvent<HTMLInputElement>) => {
@@ -101,6 +191,16 @@ export function DashboardPage() {
     }
   };
 
+  const heading =
+    view.kind === 'recents'
+      ? 'Recents'
+      : view.kind === 'trash'
+        ? 'Trash'
+        : (projects.find((p) => p.id === view.projectId)?.name ?? 'Files');
+
+  const navItemClass = (active: boolean) =>
+    `w-full rounded px-2 py-1 text-left text-xs bg-hover-app${active ? '' : ''}`;
+
   return (
     <div className="flex h-full flex-col bg-canvas-app">
       <header className="flex h-toolbar shrink-0 items-center justify-between border-b bg-toolbar px-4 border-app">
@@ -117,7 +217,7 @@ export function DashboardPage() {
 
       <div className="flex flex-1 overflow-hidden">
         <aside
-          className="w-panel-left shrink-0 border-r p-3 border-app"
+          className="w-panel-left shrink-0 overflow-y-auto border-r p-3 border-app"
           data-testid="org-project-nav"
         >
           <div className="mb-4">
@@ -135,6 +235,31 @@ export function DashboardPage() {
               ))}
             </select>
           </div>
+
+          <ul className="mb-4">
+            <li>
+              <button
+                type="button"
+                data-testid="nav-recents"
+                className={navItemClass(view.kind === 'recents')}
+                style={view.kind === 'recents' ? { backgroundColor: 'var(--bg-active)' } : undefined}
+                onClick={() => setView({ kind: 'recents' })}
+              >
+                Recents
+              </button>
+            </li>
+            <li>
+              <button
+                type="button"
+                data-testid="nav-trash"
+                className={navItemClass(view.kind === 'trash')}
+                style={view.kind === 'trash' ? { backgroundColor: 'var(--bg-active)' } : undefined}
+                onClick={() => setView({ kind: 'trash' })}
+              >
+                Trash
+              </button>
+            </li>
+          </ul>
 
           <div className="mb-1 flex items-center justify-between text-xs font-medium text-secondary-app">
             <span>Projects</span>
@@ -154,10 +279,8 @@ export function DashboardPage() {
                   type="button"
                   data-testid={`project-${p.id}`}
                   className="w-full rounded px-2 py-1 text-left text-xs bg-hover-app"
-                  style={
-                    p.id === activeProjectId ? { backgroundColor: 'var(--bg-active)' } : undefined
-                  }
-                  onClick={() => setActiveProjectId(p.id)}
+                  style={p.id === activeProjectId ? { backgroundColor: 'var(--bg-active)' } : undefined}
+                  onClick={() => setView({ kind: 'project', projectId: p.id })}
                 >
                   {p.name}
                 </button>
@@ -167,9 +290,52 @@ export function DashboardPage() {
         </aside>
 
         <main className="flex-1 overflow-y-auto p-4">
-          <div className="mb-3 flex items-center justify-between">
-            <h2 className="text-sm font-medium">Files</h2>
+          <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+            <h2 className="text-sm font-medium">{heading}</h2>
             <div className="flex items-center gap-2">
+              <input
+                type="search"
+                data-testid="file-search"
+                placeholder="Search files"
+                className="rounded border bg-transparent px-2 py-1 text-xs border-app"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+              />
+              {view.kind !== 'recents' && (
+                <select
+                  data-testid="sort-select"
+                  className="rounded border bg-transparent px-2 py-1 text-xs border-app"
+                  value={sortMode}
+                  onChange={(e) => setSortMode(e.target.value as SortMode)}
+                >
+                  <option value="updated">Last updated</option>
+                  <option value="name">Name A-Z</option>
+                </select>
+              )}
+              <div className="flex overflow-hidden rounded border border-app">
+                <button
+                  type="button"
+                  data-testid="layout-grid"
+                  aria-pressed={layout === 'grid'}
+                  className="px-2 py-1 text-xs bg-hover-app"
+                  style={layout === 'grid' ? { backgroundColor: 'var(--bg-active)' } : undefined}
+                  onClick={() => setLayoutMode('grid')}
+                >
+                  Grid
+                </button>
+                <button
+                  type="button"
+                  data-testid="layout-list"
+                  aria-pressed={layout === 'list'}
+                  className="px-2 py-1 text-xs bg-hover-app"
+                  style={layout === 'list' ? { backgroundColor: 'var(--bg-active)' } : undefined}
+                  onClick={() => setLayoutMode('list')}
+                >
+                  List
+                </button>
+              </div>
+              {/* Import + New file target the active project; they stay visible
+                  but disabled in the Recents/Trash views (no project selected). */}
               <input
                 ref={figInputRef}
                 type="file"
@@ -200,23 +366,35 @@ export function DashboardPage() {
               </button>
             </div>
           </div>
-          <div className="grid grid-cols-4 gap-3">
-            {files.map((file) => (
-              <button
-                key={file.id}
-                type="button"
-                data-testid={`file-${file.id}`}
-                className="rounded border p-3 text-left text-xs bg-hover-app border-app"
-                onClick={() => navigate(`/file/${file.id}/${slugify(file.name)}`)}
-              >
-                <div className="mb-2 h-20 rounded bg-active-app" />
-                <div className="truncate font-medium">{file.name}</div>
-                <div className="text-secondary-app">
-                  {new Date(file.updatedAt).toLocaleDateString()}
-                </div>
-              </button>
-            ))}
-          </div>
+
+          {!loadingFiles && visibleFiles.length === 0 ? (
+            <p data-testid="files-empty" className="text-xs text-secondary-app">
+              {search.trim()
+                ? 'No files match your search.'
+                : view.kind === 'trash'
+                  ? 'Trash is empty.'
+                  : 'No files yet.'}
+            </p>
+          ) : (
+            <div
+              data-testid="files-container"
+              className={
+                layout === 'grid' ? 'grid grid-cols-4 gap-3' : 'flex flex-col gap-2'
+              }
+            >
+              {visibleFiles.map((file) => (
+                <FileCard
+                  key={file.id}
+                  file={file}
+                  layout={layout}
+                  trashed={view.kind === 'trash'}
+                  onOpen={() => navigate(`/file/${file.id}/${slugify(file.name)}`)}
+                  onTrash={view.kind !== 'trash' ? () => void trashFile(file.id) : undefined}
+                  onRestore={view.kind === 'trash' ? () => void restoreFile(file.id) : undefined}
+                />
+              ))}
+            </div>
+          )}
         </main>
       </div>
     </div>

@@ -30,6 +30,14 @@ export class FileRepo {
     });
   }
 
+  /** Lists soft-deleted (trashed) files for a project, most recently updated first. */
+  listDeletedByProject(projectId: string): Promise<File[]> {
+    return this.prisma.file.findMany({
+      where: { projectId, deletedAt: { not: null } },
+      orderBy: { updatedAt: 'desc' },
+    });
+  }
+
   update(id: string, input: UpdateFileInput): Promise<File> {
     return this.prisma.file.update({ where: { id }, data: input });
   }

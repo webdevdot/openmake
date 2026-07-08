@@ -116,8 +116,42 @@ export async function apiRequest<T>(path: string, opts: RequestOptions = {}): Pr
   return (await parseBody(res)) as T;
 }
 
+/**
+ * GET a binary payload (e.g. an octet-stream Yjs snapshot) as bytes. Shares the
+ * auth-header + single-refresh-retry behavior of {@link apiRequest} but reads the
+ * body as an ArrayBuffer instead of parsing JSON.
+ */
+export async function apiRequestBinary(
+  path: string,
+  opts: RequestOptions = {},
+): Promise<Uint8Array> {
+  const res = await doFetch(path, { ...opts, method: opts.method ?? 'GET' });
+
+  if (res.status === 401 && !opts._isRetry) {
+    const newToken = await refreshAccessToken();
+    if (newToken) {
+      setAccessToken(newToken);
+      return apiRequestBinary(path, { ...opts, _isRetry: true });
+    }
+    onLogout();
+    throw new ApiError(401, 'UNAUTHENTICATED', 'Session expired');
+  }
+
+  if (!res.ok) {
+    const body = (await parseBody(res)) as Partial<ApiErrorBody> | undefined;
+    throw new ApiError(
+      res.status,
+      body?.error?.code ?? 'UNKNOWN_ERROR',
+      body?.error?.message ?? `Request failed with status ${res.status}`,
+    );
+  }
+
+  return new Uint8Array(await res.arrayBuffer());
+}
+
 export const api = {
   get: <T>(path: string) => apiRequest<T>(path, { method: 'GET' }),
+  getBinary: (path: string) => apiRequestBinary(path),
   post: <T>(path: string, body?: unknown) => apiRequest<T>(path, { method: 'POST', body }),
   patch: <T>(path: string, body?: unknown) => apiRequest<T>(path, { method: 'PATCH', body }),
   delete: <T>(path: string) => apiRequest<T>(path, { method: 'DELETE' }),

@@ -22,7 +22,15 @@ vi.mock('../api/endpoints.js', () => ({
   authApi: { register: vi.fn(), login: vi.fn(), me: vi.fn() },
   orgsApi: { list: vi.fn() },
   projectsApi: { list: vi.fn(), create: vi.fn() },
-  filesApi: { list: vi.fn(), create: vi.fn(), get: vi.fn(), import: vi.fn() },
+  filesApi: {
+    list: vi.fn(),
+    listDeleted: vi.fn(),
+    create: vi.fn(),
+    get: vi.fn(),
+    import: vi.fn(),
+    delete: vi.fn(),
+    restore: vi.fn(),
+  },
 }));
 
 afterEach(() => {
@@ -37,6 +45,16 @@ function mockDashboard({ withProject }: { withProject: boolean }) {
     withProject ? [{ id: 'proj1', orgId: 'org1', name: 'Website' }] : [],
   );
   vi.mocked(filesApi.list).mockResolvedValue([]);
+  vi.mocked(filesApi.listDeleted).mockResolvedValue([]);
+}
+
+/**
+ * The dashboard opens on the Recents view, where Import/New-file are disabled
+ * (no active project). Select proj1 so those actions become enabled.
+ */
+async function selectProject() {
+  const nav = await screen.findByTestId('project-proj1');
+  fireEvent.click(nav);
 }
 
 function okReport(
@@ -67,6 +85,7 @@ describe('DashboardPage new file', () => {
     const promptSpy = vi.fn().mockReturnValue(null);
     vi.stubGlobal('prompt', promptSpy);
     render(<DashboardPage />);
+    await selectProject();
 
     await waitFor(() =>
       expect((screen.getByTestId('create-file-button') as HTMLButtonElement).disabled).toBe(false),
@@ -88,6 +107,7 @@ describe('DashboardPage new file', () => {
       updatedAt: '2026-07-06T00:00:00.000Z',
     });
     render(<DashboardPage />);
+    await selectProject();
 
     await waitFor(() =>
       expect((screen.getByTestId('create-file-button') as HTMLButtonElement).disabled).toBe(false),
@@ -120,6 +140,7 @@ describe('DashboardPage .fig import', () => {
       updatedAt: '2026-07-06T00:00:00.000Z',
     });
     render(<DashboardPage />);
+    await selectProject();
 
     await waitFor(() =>
       expect((screen.getByTestId('import-fig-button') as HTMLButtonElement).disabled).toBe(false),
@@ -155,6 +176,7 @@ describe('DashboardPage .fig import', () => {
       }),
     );
     render(<DashboardPage />);
+    await selectProject();
 
     await waitFor(() =>
       expect((screen.getByTestId('import-fig-button') as HTMLButtonElement).disabled).toBe(false),
@@ -180,6 +202,7 @@ describe('DashboardPage .fig import', () => {
       }),
     );
     render(<DashboardPage />);
+    await selectProject();
 
     await waitFor(() =>
       expect((screen.getByTestId('import-fig-button') as HTMLButtonElement).disabled).toBe(false),

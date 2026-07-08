@@ -36,11 +36,19 @@ export const projectsApi = {
 export const filesApi = {
   list: (projectId: string) =>
     api.get<{ files: FileMeta[] }>(`/projects/${projectId}/files`).then((r) => r.files),
+  listDeleted: (projectId: string) =>
+    api
+      .get<{ files: FileMeta[] }>(`/projects/${projectId}/files?deleted=1`)
+      .then((r) => r.files),
   create: (projectId: string, name: string) =>
     api.post<{ file: FileMeta }>(`/projects/${projectId}/files`, { name }).then((r) => r.file),
   import: (projectId: string, body: { name: string; document: unknown }) =>
     api.post<{ file: FileMeta }>(`/projects/${projectId}/files/import`, body).then((r) => r.file),
   get: (fileId: string) => api.get<{ file: FileMeta }>(`/files/${fileId}`).then((r) => r.file),
+  delete: (fileId: string) => api.delete<void>(`/files/${fileId}`),
+  restore: (fileId: string) =>
+    api.post<{ file: FileMeta }>(`/files/${fileId}/restore`).then((r) => r.file),
+  snapshot: (fileId: string) => api.getBinary(`/files/${fileId}/snapshot`),
 };
 
 // The editor only knows the fileId; the AI endpoints are org-scoped. Resolve the
