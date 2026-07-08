@@ -215,7 +215,12 @@ export function EditorPage() {
         }}
       />
       <div className="flex flex-1 overflow-hidden">
-        <LeftPanel doc={session.doc} activePageId={activePageId} onSelectPage={setActivePageId} />
+        <LeftPanel
+          doc={session.doc}
+          fileId={fileId ?? ''}
+          activePageId={activePageId}
+          onSelectPage={setActivePageId}
+        />
         {/* Canvas column: the canvas area (with its floating pill toolbar)
             stacked above the full-width timeline dock. The relative wrapper
             keeps the BottomToolbar pill centered over the canvas only, and

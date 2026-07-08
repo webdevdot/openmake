@@ -26,3 +26,30 @@ export interface FileMeta {
   name: string;
   updatedAt: string;
 }
+
+export interface Skill {
+  id: string;
+  name: string;
+  description: string;
+  builtIn: boolean;
+}
+
+export interface Agent {
+  id: string;
+  name: string;
+  description: string;
+  provider: string;
+  model: string;
+}
+
+export interface Workflow {
+  id: string;
+  name: string;
+  description: string;
+}
+
+export interface WorkflowRunResult {
+  conversationId: string;
+  steps: Array<{ agentId: string; output: string }>;
+  final: string;
+}
