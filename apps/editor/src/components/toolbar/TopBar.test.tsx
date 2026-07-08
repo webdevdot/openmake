@@ -74,6 +74,21 @@ describe('TopBar', () => {
     expect(onPresent).toHaveBeenCalledTimes(1);
   });
 
+  it('no longer hosts the zoom menu or Design/Prototype tabs (moved to right panel)', () => {
+    const doc = OpenDoc.create();
+    render(
+      <TopBar
+        doc={doc}
+        status="connected"
+        onExportPNG={noop}
+        onExportSVG={noop}
+        onPresent={noop}
+      />,
+    );
+    expect(screen.queryByTestId('zoom-menu-trigger')).toBeNull();
+    expect(screen.queryByText('Prototype')).toBeNull();
+  });
+
   it('renders collab-status text per status prop', () => {
     const doc = OpenDoc.create();
     const { rerender } = render(

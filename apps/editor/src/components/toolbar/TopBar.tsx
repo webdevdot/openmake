@@ -1,6 +1,5 @@
 import type { OpenDoc } from '@openmake/core';
 import { FileText } from 'lucide-react';
-import { ZoomMenu } from './ZoomMenu.js';
 import { PresenceAvatars } from './PresenceAvatars.js';
 import type { CollabStatus } from '../../hooks/useCollab.js';
 
@@ -13,9 +12,10 @@ export interface TopBarProps {
 }
 
 /**
- * Slim top bar: file identity + collab/export/present actions. Tool
- * selection lives in the floating BottomToolbar (matches Figma's split
- * between top chrome and the bottom tool dock).
+ * Slim top bar: file identity + undo/redo + collab/export/present actions.
+ * Tool selection lives in the floating BottomToolbar and the Design/Prototype
+ * tabs + zoom menu live at the top of the right panel (RightPanelHeader) —
+ * matching Figma UI3's chrome split.
  */
 export function TopBar({ doc, status, onExportPNG, onExportSVG, onPresent }: TopBarProps) {
   return (
@@ -53,20 +53,6 @@ export function TopBar({ doc, status, onExportPNG, onExportSVG, onPresent }: Top
       </div>
 
       <div className="flex items-center gap-2">
-        <div
-          className="flex items-center gap-1 rounded-lg p-0.5 text-xs"
-          style={{ backgroundColor: 'var(--bg-hover)' }}
-        >
-          {/* bg-panel + border reads as a raised pill against the --bg-hover
-              track in both themes; --bg-active alone was ~1.5:1 vs the track. */}
-          <span
-            className="rounded border px-2 py-1 font-medium border-app shadow-sm"
-            style={{ backgroundColor: 'var(--bg-panel)' }}
-          >
-            Design
-          </span>
-          <span className="rounded px-2 py-1 text-secondary-app">Prototype</span>
-        </div>
         <span
           data-testid="collab-status"
           className="rounded px-2 py-0.5 text-xs text-secondary-app"
@@ -92,7 +78,6 @@ export function TopBar({ doc, status, onExportPNG, onExportSVG, onPresent }: Top
         >
           Export SVG
         </button>
-        <ZoomMenu />
         <PresenceAvatars />
         <button
           type="button"

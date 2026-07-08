@@ -42,7 +42,7 @@ export function PageInspector({ doc, page }: PageInspectorProps) {
 
   return (
     <div
-      className="flex w-panel-right shrink-0 flex-col overflow-y-auto border-l bg-panel border-app"
+      className="flex flex-1 flex-col overflow-y-auto"
       data-testid="page-inspector"
     >
       <div className="border-b p-2 border-app">

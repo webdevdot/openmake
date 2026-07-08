@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useParams } from 'react-router-dom';
-import { Square } from 'lucide-react';
 import { initLayout } from '@openmake/layout';
 import { createCanvasKitRenderer, buildRenderScene, exportSVG } from '@openmake/renderer';
 import { useCollab } from '../hooks/useCollab.js';
@@ -211,13 +210,6 @@ export function EditorPage() {
         <div className="flex flex-1 flex-col overflow-hidden">
           <div ref={canvasWrapRef} className="relative flex flex-1 overflow-hidden">
             {canvasEl}
-            <div
-              data-testid="page-chip"
-              className="pointer-events-none absolute left-3 top-3 z-10 flex items-center gap-1.5 rounded px-2 py-1 text-xs bg-floating-app text-zinc-100"
-            >
-              <Square size={14} strokeWidth={1.75} />
-              <span>{session.doc.getNode(activePageId)?.name}</span>
-            </div>
             <BottomToolbar />
           </div>
           {timelineTarget && <TimelinePanel doc={session.doc} node={timelineTarget} />}

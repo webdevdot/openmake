@@ -14,6 +14,7 @@ import { InteractionSection } from './InteractionSection.js';
 import { MotionSection } from './MotionSection.js';
 import { ExportSection } from './ExportSection.js';
 import { PageInspector } from './PageInspector.js';
+import { RightPanelHeader } from './RightPanelHeader.js';
 
 export interface InspectorProps {
   doc: OpenDoc;
@@ -22,16 +23,43 @@ export interface InspectorProps {
   onExportSVG: (nodeId: string) => void;
 }
 
+/**
+ * Right panel column. The Design/Prototype tabs + zoom menu header (Figma UI3
+ * pattern) always sits at the top; the body below it switches between the
+ * empty state, the page inspector, and the per-node inspector.
+ */
 export function Inspector({ doc, pageId, onExportPNG, onExportSVG }: InspectorProps) {
   useDocVersion(doc);
   const selection = useSelectionStore((s) => s.selectedIds);
 
+  return (
+    <div
+      className="flex w-panel-right shrink-0 flex-col border-l bg-panel border-app"
+      data-testid="inspector"
+    >
+      <RightPanelHeader />
+      <InspectorBody
+        doc={doc}
+        pageId={pageId}
+        selection={selection}
+        onExportPNG={onExportPNG}
+        onExportSVG={onExportSVG}
+      />
+    </div>
+  );
+}
+
+interface InspectorBodyProps extends InspectorProps {
+  selection: string[];
+}
+
+function InspectorBody({ doc, pageId, selection, onExportPNG, onExportSVG }: InspectorBodyProps) {
   if (selection.length === 0) {
     const page = doc.getNode(pageId);
     if (page?.type === 'PAGE') return <PageInspector doc={doc} page={page} />;
     return (
       <div
-        className="w-panel-right shrink-0 border-l p-3 text-xs text-secondary-app border-app"
+        className="flex-1 p-3 text-xs text-secondary-app"
         data-testid="inspector-empty"
       >
         Select a layer to inspect its properties.
@@ -50,10 +78,7 @@ export function Inspector({ doc, pageId, onExportPNG, onExportSVG }: InspectorPr
   const canHaveInteraction = node.type !== 'DOCUMENT' && node.type !== 'PAGE';
 
   return (
-    <div
-      className="flex w-panel-right shrink-0 flex-col overflow-y-auto border-l bg-panel border-app"
-      data-testid="inspector"
-    >
+    <div className="flex flex-1 flex-col overflow-y-auto" data-testid="inspector-body">
       <AlignSection doc={doc} selectedIds={selection} />
       <VariantsSection doc={doc} selectedIds={selection} />
       {node.type !== 'DOCUMENT' && node.type !== 'PAGE' && (
