@@ -32,6 +32,9 @@ importers:
 
   apps/editor:
     dependencies:
+      '@openmake/ai':
+        specifier: workspace:*
+        version: link:../../packages/ai
       '@openmake/codegen':
         specifier: workspace:*
         version: link:../../packages/codegen

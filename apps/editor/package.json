@@ -10,6 +10,7 @@
     "test": "vitest run"
   },
   "dependencies": {
+    "@openmake/ai": "workspace:*",
     "@openmake/codegen": "workspace:*",
     "@openmake/collab": "workspace:*",
     "@openmake/core": "workspace:*",
