@@ -13,4 +13,11 @@ export {
   type Bounds,
   type Mat2x3,
 } from './geometry.js';
+export {
+  resolveSnap,
+  type SnapCandidateBox,
+  type SnapConfig,
+  type SnapGuide,
+  type SnapResult,
+} from './snap.js';
 export { resolveInstance, type ResolvedInstance } from './instances.js';

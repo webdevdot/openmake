@@ -1,9 +1,16 @@
 import { useRef } from 'react';
 import type { RefObject } from 'react';
-import { getWorldBounds, type OpenDoc } from '@openmake/core';
+import {
+  getWorldBounds,
+  resolveSnap,
+  type OpenDoc,
+  type SnapCandidateBox,
+  type SnapGuide,
+} from '@openmake/core';
 import { useSelectionStore } from '../store/selection.js';
 import { screenToWorld, type Camera } from '../canvas/camera.js';
 import { normalizeRect, type Rect } from '../canvas/marquee.js';
+import { SNAP_THRESHOLD_PX, toCandidate } from '../canvas/snap-helpers.js';
 
 interface DownArgs {
   world: { x: number; y: number };
@@ -15,10 +22,12 @@ interface DownArgs {
 interface MoveArgs {
   screen: { x: number; y: number };
   setMarquee: (rect: Rect | null) => void;
+  setGuides: (guides: SnapGuide[]) => void;
 }
 
 interface UpArgs {
   setMarquee: (rect: Rect | null) => void;
+  setGuides: (guides: SnapGuide[]) => void;
   marqueeHits: (rect: Rect, candidates: Array<{ id: string; bounds: Rect }>) => string[];
 }
 
@@ -71,7 +80,7 @@ export function useSelectGesture({
     }
   };
 
-  const onPointerMove = (e: React.PointerEvent, { screen, setMarquee }: MoveArgs) => {
+  const onPointerMove = (e: React.PointerEvent, { screen, setMarquee, setGuides }: MoveArgs) => {
     if (mode.current === 'marquee' && dragStartScreen.current) {
       const rect = normalizeRect(dragStartScreen.current, screen);
       marqueeRectRef.current = rect;
@@ -79,7 +88,8 @@ export function useSelectGesture({
       return;
     }
     if (mode.current === 'move' && dragStartWorld.current && cameraRef.current) {
-      const world = screenToWorld(cameraRef.current, screen);
+      const camera = cameraRef.current;
+      const world = screenToWorld(camera, screen);
       let dx = world.x - dragStartWorld.current.x;
       let dy = world.y - dragStartWorld.current.y;
       if (e.shiftKey) {
@@ -91,6 +101,43 @@ export function useSelectGesture({
       } else {
         shiftAxisLock.current = null;
       }
+
+      // Object snapping (decision A, object-priority). Build the moving box as
+      // the union of the selection's dragged bounds, and gather every other
+      // top-level page node as a static candidate. The pixel threshold is
+      // converted to world units by dividing by zoom so snapping feels
+      // constant on screen regardless of zoom level.
+      const movingIds = new Set(moveOrigins.current.keys());
+      const movingBoxes: SnapCandidateBox[] = [];
+      for (const id of movingIds) {
+        const origin = moveOrigins.current.get(id)!;
+        const b = getWorldBounds(doc, id);
+        // getWorldBounds reflects the node's CURRENT (already-moved) position on
+        // subsequent moves; rebuild from origin+delta so the box tracks the drag.
+        const w = b.width;
+        const h = b.height;
+        movingBoxes.push({ minX: origin.x + dx, minY: origin.y + dy, maxX: origin.x + dx + w, maxY: origin.y + dy + h });
+      }
+      const movingUnion: SnapCandidateBox = {
+        minX: Math.min(...movingBoxes.map((m) => m.minX)),
+        minY: Math.min(...movingBoxes.map((m) => m.minY)),
+        maxX: Math.max(...movingBoxes.map((m) => m.maxX)),
+        maxY: Math.max(...movingBoxes.map((m) => m.maxY)),
+      };
+      const statics: SnapCandidateBox[] = [];
+      for (const id of doc.getChildrenIds(pageId)) {
+        if (movingIds.has(id)) continue;
+        statics.push(toCandidate(getWorldBounds(doc, id)));
+      }
+
+      const snap = resolveSnap(movingUnion, statics, {
+        grid: 0,
+        threshold: SNAP_THRESHOLD_PX / camera.zoom,
+      });
+      dx += snap.dx;
+      dy += snap.dy;
+      setGuides(snap.guides);
+
       doc.transact(() => {
         for (const [id, origin] of moveOrigins.current) {
           doc.updateNode(id, { x: origin.x + dx, y: origin.y + dy });
@@ -99,7 +146,7 @@ export function useSelectGesture({
     }
   };
 
-  const onPointerUp = (_e: React.PointerEvent, { setMarquee, marqueeHits }: UpArgs) => {
+  const onPointerUp = (_e: React.PointerEvent, { setMarquee, setGuides, marqueeHits }: UpArgs) => {
     if (mode.current === 'marquee' && dragStartScreen.current) {
       const camera = cameraRef.current;
       const candidates = doc.getChildrenIds(pageId).flatMap(function collect(id): Array<{
@@ -136,6 +183,7 @@ export function useSelectGesture({
     }
     if (mode.current === 'move') {
       doc.commitUndoGroup();
+      setGuides([]); // clear any snap guides once the drag ends
     }
     mode.current = 'idle';
     dragStartScreen.current = null;
