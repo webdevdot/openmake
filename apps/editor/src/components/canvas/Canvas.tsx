@@ -207,6 +207,12 @@ export function Canvas({ doc, pageId, onCursorMoveWorld }: CanvasProps) {
       const dy = e.clientY - panDragRef.current.y;
       panDragRef.current = { x: e.clientX, y: e.clientY };
       cameraRef.current = panBy(cameraRef.current, { x: dx, y: dy });
+      // Mirror into the store on every tick (not just at pointerup), matching
+      // the wheel handler. This closes a race where a keyboard zoom shortcut
+      // fired mid-drag would read a stale pre-drag camera from the store and
+      // clobber the in-flight pan when Canvas's store-subscribe effect snaps
+      // cameraRef back to that stale value.
+      setCamera(cameraRef.current);
       loopRef.current?.markDirty();
       return;
     }

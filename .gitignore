@@ -12,3 +12,6 @@ playwright-report/
 test-results/
 .turbo/
 generated/
+.claude/
+.playwright-mcp/
+.serena/
