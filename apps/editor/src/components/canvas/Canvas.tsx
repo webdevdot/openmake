@@ -6,6 +6,7 @@ import { useToolStore } from '../../store/tool.js';
 import { useSelectionStore } from '../../store/selection.js';
 import { useCameraStore } from '../../store/camera.js';
 import { useImageStore } from '../../store/images.js';
+import { useAnimationStore } from '../../store/animation.js';
 import { screenToWorld, zoomByFactor, panBy, type Camera } from '../../canvas/camera.js';
 import { RenderLoop } from '../../canvas/render-loop.js';
 import { loadEditorFonts } from '../../canvas/fonts.js';
@@ -79,6 +80,12 @@ export function Canvas({ doc, pageId, onCursorMoveWorld }: CanvasProps) {
           () => pageId,
           () => cameraRef.current,
           () => useImageStore.getState().images,
+          {
+            // Motion playback: transient, editor-local overrides — never touches the doc.
+            advance: (now) => useAnimationStore.getState().advance(now),
+            isActive: () => useAnimationStore.getState().playing !== null,
+            getOverrides: () => useAnimationStore.getState().overrides,
+          },
         );
         setReady(true);
       } catch (err) {
@@ -167,6 +174,13 @@ export function Canvas({ doc, pageId, onCursorMoveWorld }: CanvasProps) {
         loopRef.current?.markDirty();
       }
     });
+  }, []);
+
+  // --- Motion playback: kick the render loop when play/stop/override changes -
+  // The RenderLoop self-schedules while a node is playing, but the first frame
+  // after Play (and the snap-back after Stop) needs an external nudge.
+  useEffect(() => {
+    return useAnimationStore.subscribe(() => loopRef.current?.markDirty());
   }, []);
 
   // --- Wheel: scroll to pan, cmd/ctrl+wheel to zoom at cursor ----------------

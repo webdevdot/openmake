@@ -175,6 +175,48 @@ export const ReactionSchema = z.object({
 export type Reaction = z.infer<typeof ReactionSchema>;
 
 // ---------------------------------------------------------------------------
+// Motion / animation
+// ---------------------------------------------------------------------------
+
+/** Node properties an animation track can drive. All are plain numbers. */
+export const TRACK_PROPERTIES = [
+  'x',
+  'y',
+  'width',
+  'height',
+  'rotation',
+  'opacity',
+] as const;
+export const TrackPropertySchema = z.enum(TRACK_PROPERTIES);
+export type TrackProperty = z.infer<typeof TrackPropertySchema>;
+
+export const EasingSchema = z.enum(['linear', 'ease-in', 'ease-out', 'ease-in-out']);
+export type Easing = z.infer<typeof EasingSchema>;
+
+export const KeyframeSchema = z.object({
+  /** Milliseconds from the animation start; >= 0. */
+  time: z.number().min(0),
+  value: z.number(),
+  /** Easing applied on the segment that STARTS at this keyframe. */
+  easing: EasingSchema.default('linear'),
+});
+export type Keyframe = z.infer<typeof KeyframeSchema>;
+
+export const AnimTrackSchema = z.object({
+  property: TrackPropertySchema,
+  /** Sorted by time ascending; at least two keyframes define a segment. */
+  keyframes: z.array(KeyframeSchema).min(2),
+});
+export type AnimTrack = z.infer<typeof AnimTrackSchema>;
+
+export const NodeAnimationSchema = z.object({
+  /** Total timeline length in milliseconds; > 0. */
+  duration: z.number().positive(),
+  tracks: z.array(AnimTrackSchema).default([]),
+});
+export type NodeAnimation = z.infer<typeof NodeAnimationSchema>;
+
+// ---------------------------------------------------------------------------
 // Nodes (flat map: children are id arrays, never nested objects)
 // ---------------------------------------------------------------------------
 
@@ -213,6 +255,8 @@ const base = {
   /** Per-field variable bindings, e.g. { "fills.0.color": "var_x" }. */
   boundVariables: z.record(z.string(), z.string()).optional(),
   reactions: z.array(ReactionSchema).optional(),
+  /** Motion timeline for this node; sampled at playback time, never a persisted transform. */
+  animation: NodeAnimationSchema.optional(),
   /** Sizing behavior when inside an auto-layout parent. */
   layoutSizingHorizontal: SizingModeSchema.optional(),
   layoutSizingVertical: SizingModeSchema.optional(),
