@@ -20,3 +20,4 @@
 
 - [2026-07-05 WebCloudKey design platform bootstrap](../tasks/2026-07-05-webcloudkey-design-platform.md) — NEW_PROJECT flow
 - [2026-07-06 .fig import + UI3 chrome finish](../tasks/2026-07-06-fig-import-and-ui3-chrome.md) — FEATURE flow (absorbs figma-chrome-rebuild)
+- [2026-07-08 Figma-parity gaps: toolbar tools, auto-layout panel, align/flip](../tasks/2026-07-08-figma-parity-gaps.md) — FEATURE ×3 via ultracode workflow (Opus agents); variants UI still open
