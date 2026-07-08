@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { createCanvasKitRenderer, type Renderer } from '@openmake/renderer';
 import '../../canvas/canvaskit-init.js';
-import { getWorldBounds, hitTest, type OpenDoc } from '@openmake/core';
+import { getWorldBounds, hitTest, type OpenDoc, type SnapGuide } from '@openmake/core';
 import { useToolStore } from '../../store/tool.js';
 import { useSelectionStore } from '../../store/selection.js';
 import { useCameraStore } from '../../store/camera.js';
@@ -37,6 +37,7 @@ export function Canvas({ doc, pageId, onCursorMoveWorld }: CanvasProps) {
   const selection = useSelectionStore((s) => s.selectedIds);
 
   const [marquee, setMarquee] = useState<Rect | null>(null);
+  const [snapGuides, setSnapGuides] = useState<SnapGuide[]>([]);
   const [spaceHeld, setSpaceHeld] = useState(false);
   const [textEditorNodeId, setTextEditorNodeId] = useState<string | null>(null);
   const pendingTextRef = useRef<{ x: number; y: number } | null>(null);
@@ -247,7 +248,7 @@ export function Canvas({ doc, pageId, onCursorMoveWorld }: CanvasProps) {
     }
 
     if (tool === 'select') {
-      selectGesture.onPointerMove(e, { screen, setMarquee });
+      selectGesture.onPointerMove(e, { screen, setMarquee, setGuides: setSnapGuides });
       return;
     }
 
@@ -272,6 +273,7 @@ export function Canvas({ doc, pageId, onCursorMoveWorld }: CanvasProps) {
     if (tool === 'select') {
       selectGesture.onPointerUp(e, {
         setMarquee,
+        setGuides: setSnapGuides,
         marqueeHits: (rect, candidates) => marqueeHits(rect, candidates),
       });
       return;
@@ -318,6 +320,8 @@ export function Canvas({ doc, pageId, onCursorMoveWorld }: CanvasProps) {
           selection={selection}
           cameraRef={cameraRef}
           marquee={marquee}
+          snapGuides={snapGuides}
+          setSnapGuides={setSnapGuides}
           getWorldBounds={(id) => getWorldBounds(doc, id)}
         />
       )}
