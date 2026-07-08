@@ -7,6 +7,7 @@ import { useSelectionStore } from '../../store/selection.js';
 import { useCameraStore } from '../../store/camera.js';
 import { useImageStore } from '../../store/images.js';
 import { useAnimationStore } from '../../store/animation.js';
+import { useVariablesStore, buildVariableColors } from '../../store/variables.js';
 import { screenToWorld, zoomByFactor, panBy, type Camera } from '../../canvas/camera.js';
 import { RenderLoop } from '../../canvas/render-loop.js';
 import { loadEditorFonts } from '../../canvas/fonts.js';
@@ -86,6 +87,9 @@ export function Canvas({ doc, pageId, onCursorMoveWorld }: CanvasProps) {
             isActive: () => useAnimationStore.getState().playing !== null,
             getOverrides: () => useAnimationStore.getState().overrides,
           },
+          // Variables v1: resolve COLOR variables for each collection's active
+          // mode (editor view state) so bound solid fills render live.
+          () => buildVariableColors(doc),
         );
         setReady(true);
       } catch (err) {
@@ -181,6 +185,12 @@ export function Canvas({ doc, pageId, onCursorMoveWorld }: CanvasProps) {
   // after Play (and the snap-back after Stop) needs an external nudge.
   useEffect(() => {
     return useAnimationStore.subscribe(() => loopRef.current?.markDirty());
+  }, []);
+
+  // Switching a collection's active mode is editor view state (not a doc write),
+  // so nudge the loop to re-resolve bound fills for the newly active mode.
+  useEffect(() => {
+    return useVariablesStore.subscribe(() => loopRef.current?.markDirty());
   }, []);
 
   // --- Wheel: scroll to pan, cmd/ctrl+wheel to zoom at cursor ----------------

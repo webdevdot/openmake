@@ -473,17 +473,108 @@ describe('group / ungroup', () => {
   });
 });
 
-describe('variables and styles', () => {
-  it('stores and retrieves variables', () => {
+describe('variable collections, variables, and styles', () => {
+  it('creates a collection with a single default mode', () => {
     const { doc } = newDocWithPage();
-    doc.setVariable({
-      id: 'var_primary',
-      name: 'color/primary',
-      type: 'COLOR',
-      valuesByMode: { default: { r: 0, g: 0.5, b: 1, a: 1 } },
-    });
-    expect(doc.getVariables()['var_primary']?.name).toBe('color/primary');
+    const colId = doc.createVariableCollection('Theme', 'Light');
+    const col = doc.getVariableCollections()[colId]!;
+    expect(col.name).toBe('Theme');
+    expect(col.modes).toHaveLength(1);
+    expect(col.modes[0]!.name).toBe('Light');
+    expect(col.defaultModeId).toBe(col.modes[0]!.id);
+  });
+
+  it('renames a collection and adds/renames modes', () => {
+    const { doc } = newDocWithPage();
+    const colId = doc.createVariableCollection('Theme', 'Light');
+    doc.renameCollection(colId, 'Palette');
+    const darkId = doc.addMode(colId, 'Dark');
+    doc.renameMode(colId, darkId, 'Night');
+    const col = doc.getVariableCollections()[colId]!;
+    expect(col.name).toBe('Palette');
+    expect(col.modes.map((m) => m.name)).toEqual(['Light', 'Night']);
+  });
+
+  it('removeMode guards the last mode and reassigns default when needed', () => {
+    const { doc } = newDocWithPage();
+    const colId = doc.createVariableCollection('Theme', 'Light');
+    const lightId = doc.getVariableCollections()[colId]!.modes[0]!.id;
+    expect(() => doc.removeMode(colId, lightId)).toThrow(/last mode/);
+
+    const darkId = doc.addMode(colId, 'Dark');
+    const varId = doc.createVariable(colId, 'COLOR', 'primary');
+    // Removing the default (light) mode reassigns default and drops the value.
+    doc.removeMode(colId, lightId);
+    const col = doc.getVariableCollections()[colId]!;
+    expect(col.modes.map((m) => m.id)).toEqual([darkId]);
+    expect(col.defaultModeId).toBe(darkId);
+    expect(lightId in doc.getVariables()[varId]!.valuesByMode).toBe(false);
+  });
+
+  it('creates variables seeded across all modes and updates per-mode values', () => {
+    const { doc } = newDocWithPage();
+    const colId = doc.createVariableCollection('Theme', 'Light');
+    const darkId = doc.addMode(colId, 'Dark');
+    const lightId = doc.getVariableCollections()[colId]!.modes[0]!.id;
+    const varId = doc.createVariable(colId, 'COLOR', 'primary', '#ffffff');
+    const v = doc.getVariables()[varId]!;
+    expect(v.valuesByMode[lightId]).toBe('#ffffff');
+    expect(v.valuesByMode[darkId]).toBe('#ffffff');
+
+    doc.updateVariable(varId, { name: 'brand', valuesByMode: { [darkId]: '#000000' } });
+    const updated = doc.getVariables()[varId]!;
+    expect(updated.name).toBe('brand');
+    expect(updated.valuesByMode[lightId]).toBe('#ffffff');
+    expect(updated.valuesByMode[darkId]).toBe('#000000');
+  });
+
+  it('resolveVariableValue uses the active mode, then the collection default', () => {
+    const { doc } = newDocWithPage();
+    const colId = doc.createVariableCollection('Theme', 'Light');
+    const lightId = doc.getVariableCollections()[colId]!.modes[0]!.id;
+    const darkId = doc.addMode(colId, 'Dark');
+    const varId = doc.createVariable(colId, 'COLOR', 'primary', '#111111');
+    doc.updateVariable(varId, { valuesByMode: { [darkId]: '#eeeeee' } });
+
+    expect(doc.resolveVariableValue(varId, darkId)).toBe('#eeeeee');
+    expect(doc.resolveVariableValue(varId, lightId)).toBe('#111111');
+    // Unknown mode falls back to the default (light) mode value.
+    expect(doc.resolveVariableValue(varId, 'nope')).toBe('#111111');
+    // Missing variable resolves to undefined.
+    expect(doc.resolveVariableValue('missing')).toBeUndefined();
+  });
+
+  it('deleteCollection cascades to its variables but leaves others', () => {
+    const { doc } = newDocWithPage();
+    const colA = doc.createVariableCollection('A');
+    const colB = doc.createVariableCollection('B');
+    const a1 = doc.createVariable(colA, 'FLOAT', 'a1');
+    const b1 = doc.createVariable(colB, 'FLOAT', 'b1');
+    doc.deleteCollection(colA);
+    expect(doc.getVariableCollections()[colA]).toBeUndefined();
+    expect(doc.getVariables()[a1]).toBeUndefined();
+    expect(doc.getVariables()[b1]?.name).toBe('b1');
+  });
+
+  it('variables and collections roundtrip through toJSON/fromJSON', () => {
+    const { doc } = newDocWithPage();
+    const colId = doc.createVariableCollection('Theme', 'Light');
+    doc.createVariable(colId, 'COLOR', 'primary', '#3355ff');
     const json = doc.toJSON();
-    expect(json.variables['var_primary']?.type).toBe('COLOR');
+    expect(Object.keys(json.variableCollections)).toContain(colId);
+    const restored = OpenDoc.fromJSON(json);
+    expect(restored.toJSON()).toEqual(json);
+  });
+
+  it('undo reverts a variable creation as one group', () => {
+    const { doc } = newDocWithPage();
+    const colId = doc.createVariableCollection('Theme');
+    doc.commitUndoGroup();
+    const varId = doc.createVariable(colId, 'COLOR', 'primary');
+    doc.commitUndoGroup();
+    expect(doc.getVariables()[varId]).toBeDefined();
+    doc.undo();
+    expect(doc.getVariables()[varId]).toBeUndefined();
+    expect(doc.getVariableCollections()[colId]).toBeDefined();
   });
 });

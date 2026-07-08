@@ -301,7 +301,7 @@ function buildDocument(rootId: string, nodes: Record<string, SceneNode>): Docume
     rootId,
     nodes,
     variables: {},
-    variableModes: [{ id: 'default', name: 'Default' }],
+    variableCollections: {},
     styles: {},
     assets: {},
   };

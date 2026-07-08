@@ -5,6 +5,7 @@ import {
   DocumentDataSchema,
   SceneNodeSchema,
   StyleSchema,
+  VariableCollectionSchema,
   VariableSchema,
   createId,
   type AssetRef,
@@ -13,12 +14,42 @@ import {
   type SceneNode,
   type Style,
   type Variable,
+  type VariableCollection,
+  type VariableType,
 } from '@openmake/shared';
 import { applyMatrix, getWorldBounds, getWorldMatrix, invert } from './geometry.js';
 import { parseVariantName } from './variants.js';
 
 /** Origin tag for local transactions — the only origin tracked by undo. */
 export const LOCAL_ORIGIN = 'openmake:local';
+
+/** Neutral seed value for a new variable of the given type. */
+function defaultVariableValue(type: VariableType): string | number | boolean {
+  switch (type) {
+    case 'COLOR':
+      return '#000000';
+    case 'FLOAT':
+      return 0;
+    case 'STRING':
+      return '';
+    case 'BOOLEAN':
+      return false;
+  }
+}
+
+/**
+ * Free-function form of {@link OpenDoc.resolveVariableValue}, matching the
+ * pinned resolver signature `resolveVariableValue(doc, variableId, modeId?)`.
+ * Returns the value for the active mode (or the collection default), or
+ * `undefined` when unresolved.
+ */
+export function resolveVariableValue(
+  doc: OpenDoc,
+  variableId: string,
+  modeId?: string,
+): string | number | boolean | undefined {
+  return doc.resolveVariableValue(variableId, modeId);
+}
 
 const DEFAULT_NAMES: Record<NodeType, string> = {
   DOCUMENT: 'Document',
@@ -55,6 +86,7 @@ export class OpenDoc {
   private readonly nodes: Y.Map<YNode>;
   private readonly meta: Y.Map<unknown>;
   private readonly variablesMap: Y.Map<Variable>;
+  private readonly variableCollectionsMap: Y.Map<VariableCollection>;
   private readonly stylesMap: Y.Map<Style>;
   private readonly assetsMap: Y.Map<AssetRef>;
   private readonly undoManager: Y.UndoManager;
@@ -67,10 +99,17 @@ export class OpenDoc {
     this.nodes = ydoc.getMap('nodes');
     this.meta = ydoc.getMap('meta');
     this.variablesMap = ydoc.getMap('variables');
+    this.variableCollectionsMap = ydoc.getMap('variableCollections');
     this.stylesMap = ydoc.getMap('styles');
     this.assetsMap = ydoc.getMap('assets');
     this.undoManager = new Y.UndoManager(
-      [this.nodes, this.variablesMap, this.stylesMap, this.assetsMap],
+      [
+        this.nodes,
+        this.variablesMap,
+        this.variableCollectionsMap,
+        this.stylesMap,
+        this.assetsMap,
+      ],
       { trackedOrigins: new Set([LOCAL_ORIGIN]) },
     );
 
@@ -94,7 +133,13 @@ export class OpenDoc {
       for (const listener of this.listeners) listener(changed);
     });
 
-    for (const map of [this.variablesMap, this.stylesMap, this.assetsMap, this.meta]) {
+    for (const map of [
+      this.variablesMap,
+      this.variableCollectionsMap,
+      this.stylesMap,
+      this.assetsMap,
+      this.meta,
+    ]) {
       map.observe((ev) => {
         this._version++;
         const changed = new Set<string>(ev.keysChanged);
@@ -115,7 +160,6 @@ export class OpenDoc {
       doc.meta.set('id', opts.id ?? createId('doc'));
       doc.meta.set('name', opts.name ?? 'Untitled');
       doc.meta.set('rootId', rootId);
-      doc.meta.set('variableModes', [{ id: 'default', name: 'Default' }]);
       doc.insertNodeRaw(
         SceneNodeSchema.parse({ id: rootId, type: 'DOCUMENT', name: DEFAULT_NAMES.DOCUMENT }),
         null,
@@ -147,11 +191,13 @@ export class OpenDoc {
       doc.meta.set('id', validated.id);
       doc.meta.set('name', validated.name);
       doc.meta.set('rootId', validated.rootId);
-      doc.meta.set('variableModes', validated.variableModes);
       for (const [id, node] of Object.entries(validated.nodes)) {
         doc.nodes.set(id, doc.nodeToYMap(node, parentOf.get(id) ?? null));
       }
       for (const [id, v] of Object.entries(validated.variables)) doc.variablesMap.set(id, v);
+      for (const [id, c] of Object.entries(validated.variableCollections)) {
+        doc.variableCollectionsMap.set(id, c);
+      }
       for (const [id, s] of Object.entries(validated.styles)) doc.stylesMap.set(id, s);
       for (const [id, a] of Object.entries(validated.assets)) doc.assetsMap.set(id, a);
     });
@@ -172,7 +218,7 @@ export class OpenDoc {
       rootId: this.rootId,
       nodes,
       variables: Object.fromEntries(this.variablesMap.entries()),
-      variableModes: this.meta.get('variableModes') ?? [],
+      variableCollections: Object.fromEntries(this.variableCollectionsMap.entries()),
       styles: Object.fromEntries(this.stylesMap.entries()),
       assets: Object.fromEntries(this.assetsMap.entries()),
     });
@@ -580,17 +626,165 @@ export class OpenDoc {
   // Variables / styles / assets
   // -------------------------------------------------------------------------
 
-  setVariable(variable: Variable): void {
-    const parsed = VariableSchema.parse(variable);
-    this.transact(() => this.variablesMap.set(parsed.id, parsed));
+  // --- Variable collections -------------------------------------------------
+
+  /** Create a collection with a single default mode. Returns the new id. */
+  createVariableCollection(name = 'Collection', modeName = 'Mode 1'): string {
+    const id = createId('varcol');
+    const modeId = createId('mode');
+    const collection = VariableCollectionSchema.parse({
+      id,
+      name,
+      modes: [{ id: modeId, name: modeName }],
+      defaultModeId: modeId,
+    });
+    this.transact(() => this.variableCollectionsMap.set(id, collection));
+    return id;
   }
 
+  renameCollection(id: string, name: string): void {
+    const current = this.variableCollectionsMap.get(id);
+    if (!current) throw new Error(`Variable collection "${id}" does not exist`);
+    this.transact(() =>
+      this.variableCollectionsMap.set(id, VariableCollectionSchema.parse({ ...current, name })),
+    );
+  }
+
+  /** Append a mode to a collection. Returns the new mode's id. */
+  addMode(collectionId: string, name = 'Mode'): string {
+    const current = this.variableCollectionsMap.get(collectionId);
+    if (!current) throw new Error(`Variable collection "${collectionId}" does not exist`);
+    const modeId = createId('mode');
+    const next = VariableCollectionSchema.parse({
+      ...current,
+      modes: [...current.modes, { id: modeId, name }],
+    });
+    this.transact(() => this.variableCollectionsMap.set(collectionId, next));
+    return modeId;
+  }
+
+  renameMode(collectionId: string, modeId: string, name: string): void {
+    const current = this.variableCollectionsMap.get(collectionId);
+    if (!current) throw new Error(`Variable collection "${collectionId}" does not exist`);
+    const next = VariableCollectionSchema.parse({
+      ...current,
+      modes: current.modes.map((m) => (m.id === modeId ? { ...m, name } : m)),
+    });
+    this.transact(() => this.variableCollectionsMap.set(collectionId, next));
+  }
+
+  /**
+   * Remove a mode from a collection. Guards the last mode (a collection must
+   * keep >= 1 mode). Drops the mode's value from every variable in the
+   * collection; if the removed mode was the default, the first remaining mode
+   * becomes the new default.
+   */
+  removeMode(collectionId: string, modeId: string): void {
+    const current = this.variableCollectionsMap.get(collectionId);
+    if (!current) throw new Error(`Variable collection "${collectionId}" does not exist`);
+    if (current.modes.length <= 1) {
+      throw new Error('Cannot remove the last mode of a collection');
+    }
+    const modes = current.modes.filter((m) => m.id !== modeId);
+    if (modes.length === current.modes.length) return; // no such mode
+    const defaultModeId = current.defaultModeId === modeId ? modes[0]!.id : current.defaultModeId;
+    const next = VariableCollectionSchema.parse({ ...current, modes, defaultModeId });
+    this.transact(() => {
+      this.variableCollectionsMap.set(collectionId, next);
+      for (const [vid, v] of this.variablesMap.entries()) {
+        if (v.collectionId !== collectionId || !(modeId in v.valuesByMode)) continue;
+        const valuesByMode = { ...v.valuesByMode };
+        delete valuesByMode[modeId];
+        this.variablesMap.set(vid, { ...v, valuesByMode });
+      }
+    });
+  }
+
+  /** Delete a collection and cascade-delete every variable that belongs to it. */
+  deleteCollection(collectionId: string): void {
+    this.transact(() => {
+      this.variableCollectionsMap.delete(collectionId);
+      for (const [vid, v] of this.variablesMap.entries()) {
+        if (v.collectionId === collectionId) this.variablesMap.delete(vid);
+      }
+    });
+  }
+
+  getVariableCollections(): Record<string, VariableCollection> {
+    return Object.fromEntries(this.variableCollectionsMap.entries());
+  }
+
+  // --- Variables ------------------------------------------------------------
+
+  /**
+   * Create a variable in a collection. Seeds every collection mode with
+   * `initialValue` (defaulted by type). Returns the new variable id.
+   */
+  createVariable(
+    collectionId: string,
+    type: VariableType,
+    name = 'Variable',
+    initialValue?: string | number | boolean,
+  ): string {
+    const collection = this.variableCollectionsMap.get(collectionId);
+    if (!collection) throw new Error(`Variable collection "${collectionId}" does not exist`);
+    const seed = initialValue ?? defaultVariableValue(type);
+    const valuesByMode: Record<string, string | number | boolean> = {};
+    for (const mode of collection.modes) valuesByMode[mode.id] = seed;
+    const id = createId('var');
+    const variable = VariableSchema.parse({ id, collectionId, name, type, valuesByMode });
+    this.transact(() => this.variablesMap.set(id, variable));
+    return id;
+  }
+
+  /** Patch a variable's name and/or per-mode values. */
+  updateVariable(
+    id: string,
+    patch: { name?: string; valuesByMode?: Record<string, string | number | boolean> },
+  ): void {
+    const current = this.variablesMap.get(id);
+    if (!current) throw new Error(`Variable "${id}" does not exist`);
+    const next = VariableSchema.parse({
+      ...current,
+      ...(patch.name !== undefined ? { name: patch.name } : {}),
+      ...(patch.valuesByMode !== undefined
+        ? { valuesByMode: { ...current.valuesByMode, ...patch.valuesByMode } }
+        : {}),
+    });
+    this.transact(() => this.variablesMap.set(id, next));
+  }
+
+  /**
+   * Delete a variable. v1: existing paint bindings (SolidPaint.boundVariableId)
+   * are NOT rewritten — a dangling id simply resolves to `undefined` and the
+   * bound fill falls back to its stored color, so no node mutation is needed.
+   */
   deleteVariable(id: string): void {
     this.transact(() => this.variablesMap.delete(id));
   }
 
   getVariables(): Record<string, Variable> {
     return Object.fromEntries(this.variablesMap.entries());
+  }
+
+  /**
+   * Resolve a variable's value for a mode. When `modeId` is omitted (or the
+   * variable has no value for it), falls back to the owning collection's
+   * `defaultModeId`. Returns `undefined` if the variable, collection, or value
+   * is missing.
+   */
+  resolveVariableValue(
+    variableId: string,
+    modeId?: string,
+  ): string | number | boolean | undefined {
+    const variable = this.variablesMap.get(variableId);
+    if (!variable) return undefined;
+    if (modeId !== undefined && modeId in variable.valuesByMode) {
+      return variable.valuesByMode[modeId];
+    }
+    const collection = this.variableCollectionsMap.get(variable.collectionId);
+    if (!collection) return undefined;
+    return variable.valuesByMode[collection.defaultModeId];
   }
 
   setStyle(style: Style): void {

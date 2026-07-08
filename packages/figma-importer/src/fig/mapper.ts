@@ -146,7 +146,7 @@ function buildFigDocument(rootId: string, nodes: Record<string, SceneNode>): Doc
     rootId,
     nodes,
     variables: {},
-    variableModes: [{ id: 'default', name: 'Default' }],
+    variableCollections: {},
     styles: {},
     assets: {},
   };

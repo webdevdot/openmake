@@ -2,6 +2,7 @@ import { useState } from 'react';
 import type { OpenDoc } from '@openmake/core';
 import { PagesList } from './PagesList.js';
 import { LayersTree } from './LayersTree.js';
+import { VariablesPanel } from './VariablesPanel.js';
 import { IconRail, type RailSection } from './IconRail.js';
 
 export interface LeftPanelProps {
@@ -22,6 +23,7 @@ export function LeftPanel({ doc, activePageId, onSelectPage }: LeftPanelProps) {
           <LayersTree doc={doc} pageId={activePageId} />
         </div>
       )}
+      {section === 'variables' && <VariablesPanel doc={doc} />}
     </div>
   );
 }

@@ -12,7 +12,7 @@ export const MAX_IMPORT_NODES = 50_000;
 
 /**
  * Maximum combined entry count across ALL document collections
- * (nodes + styles + variables + variableModes + assets) accepted by import.
+ * (nodes + styles + variables + variableCollections + assets) accepted by import.
  * OpenDoc.fromJSON + Y.encodeStateAsUpdate are synchronous and their cost
  * scales with total entries, not just nodes — capping only `nodes` would let
  * a document with a handful of nodes but hundreds of thousands of styles
@@ -140,7 +140,7 @@ export async function fileRoutes(app: FastifyInstance): Promise<void> {
         nodeCount +
         collectionSize(document.styles) +
         collectionSize(document.variables) +
-        collectionSize(document.variableModes) +
+        collectionSize(document.variableCollections) +
         collectionSize(document.assets);
       if (totalEntries > MAX_IMPORT_ENTRIES) {
         throw new HttpError(
