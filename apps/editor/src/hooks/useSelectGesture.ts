@@ -102,15 +102,16 @@ export function useSelectGesture({
   const onPointerUp = (_e: React.PointerEvent, { setMarquee, marqueeHits }: UpArgs) => {
     if (mode.current === 'marquee' && dragStartScreen.current) {
       const camera = cameraRef.current;
-      const candidates = doc
-        .getChildrenIds(pageId)
-        .flatMap(function collect(id): Array<{ id: string; bounds: Rect }> {
-          const node = doc.getNode(id);
-          if (!node) return [];
-          const self = [{ id, bounds: getWorldBounds(doc, id) }];
-          const children = 'children' in node ? (node.children as string[]) : [];
-          return self.concat(children.flatMap(collect));
-        });
+      const candidates = doc.getChildrenIds(pageId).flatMap(function collect(id): Array<{
+        id: string;
+        bounds: Rect;
+      }> {
+        const node = doc.getNode(id);
+        if (!node) return [];
+        const self = [{ id, bounds: getWorldBounds(doc, id) }];
+        const children = 'children' in node ? (node.children as string[]) : [];
+        return self.concat(children.flatMap(collect));
+      });
       // The marquee rect in state is screen-space; convert it to world-space
       // (via the marquee corners) so it can be compared against candidate
       // world bounds without per-candidate camera math.

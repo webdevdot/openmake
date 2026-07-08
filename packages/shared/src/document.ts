@@ -244,7 +244,12 @@ export const PageNodeSchema = z.object({
   backgroundColor: ColorSchema.default({ r: 0.96, g: 0.96, b: 0.96, a: 1 }),
 });
 
-export const FrameNodeSchema = z.object({ ...base, ...geometry, ...container, type: z.literal('FRAME') });
+export const FrameNodeSchema = z.object({
+  ...base,
+  ...geometry,
+  ...container,
+  type: z.literal('FRAME'),
+});
 export const GroupNodeSchema = z.object({
   ...base,
   type: z.literal('GROUP'),

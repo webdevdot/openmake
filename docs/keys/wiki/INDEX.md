@@ -8,12 +8,15 @@
 - [data-model.md](data-model.md) — 21 Prisma models: tenancy, Yjs storage, component intelligence, AI
 - [api-contracts.md](api-contracts.md) — REST /api/v1, WS /sync, MCP /mcp (19 tools), CLI
 - [decisions.md](decisions.md) — ADR-1…10: React+external store, Y.Doc engine, CanvasKit, Fastify, Postgres, auth, AI, MCP, supply-chain, deferrals
+- [fig-format.md](fig-format.md) — .fig binary container/Kiwi format, parser landscape, import strategy + legal caveats
 
 ## Source documents
 
 - `/Users/hardik/Downloads/WebCloudKey_Architecture_Graph.md` (ingested 2026-07-05)
 - `/Users/hardik/Downloads/WebCloudKey_Design_Platform_Master_Plan.md` (ingested 2026-07-05)
+- `/Users/hardik/Downloads/compass_artifact_wf-55306b6f-acf4-45ac-bef5-18934eb8ade6_text_markdown.md` — Figma-clone low-code research report (ingested 2026-07-06 → [fig-format.md](fig-format.md))
 
 ## Task records
 
 - [2026-07-05 WebCloudKey design platform bootstrap](../tasks/2026-07-05-webcloudkey-design-platform.md) — NEW_PROJECT flow
+- [2026-07-06 .fig import + UI3 chrome finish](../tasks/2026-07-06-fig-import-and-ui3-chrome.md) — FEATURE flow (absorbs figma-chrome-rebuild)

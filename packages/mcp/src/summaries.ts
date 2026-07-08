@@ -63,8 +63,6 @@ export function readNodeToDepth(doc: OpenDoc, nodeId: string, depth: number): No
   const children =
     depth <= 0
       ? []
-      : doc
-          .getChildrenIds(nodeId)
-          .map((childId) => readNodeToDepth(doc, childId, depth - 1));
+      : doc.getChildrenIds(nodeId).map((childId) => readNodeToDepth(doc, childId, depth - 1));
   return { node, children };
 }

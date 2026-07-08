@@ -70,7 +70,16 @@ function buildSelectedNodeContext(
     if (rootNode) {
       collectRefs(rootNode, variableIds, styleIds);
       childrenOrder[nodeId] = getChildren(rootNode);
-      walkResolvedInstance(resolved, resolved.rootId, 1, maxDepth, descendants, childrenOrder, variableIds, styleIds);
+      walkResolvedInstance(
+        resolved,
+        resolved.rootId,
+        1,
+        maxDepth,
+        descendants,
+        childrenOrder,
+        variableIds,
+        styleIds,
+      );
     }
   } else {
     walkChildren(doc, nodeId, 1, maxDepth, descendants, childrenOrder, variableIds, styleIds);
@@ -138,7 +147,16 @@ function walkChildren(
         );
       }
     } else if (depth < maxDepth) {
-      walkChildren(doc, childId, depth + 1, maxDepth, descendants, childrenOrder, variableIds, styleIds);
+      walkChildren(
+        doc,
+        childId,
+        depth + 1,
+        maxDepth,
+        descendants,
+        childrenOrder,
+        variableIds,
+        styleIds,
+      );
     } else {
       childrenOrder[childId] = [];
     }
@@ -193,10 +211,7 @@ function collectRefs(node: SceneNode, variableIds: Set<string>, styleIds: Set<st
   }
 }
 
-function buildComponentInfo(
-  doc: OpenDoc,
-  node: SceneNode,
-): SelectedNodeContext['component'] {
+function buildComponentInfo(doc: OpenDoc, node: SceneNode): SelectedNodeContext['component'] {
   if (node.type === 'COMPONENT') {
     return {
       id: node.id,

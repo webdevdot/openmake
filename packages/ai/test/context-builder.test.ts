@@ -32,7 +32,11 @@ function setUpDoc() {
     doc.createNode({ type: 'FRAME', parentId: pageId, name: 'Button', width: 120, height: 40 }),
   );
   doc.updateNode(componentId, { description: 'Primary button' });
-  const buttonLabelId = doc.createNode({ type: 'TEXT', parentId: componentId, name: 'ButtonLabel' });
+  const buttonLabelId = doc.createNode({
+    type: 'TEXT',
+    parentId: componentId,
+    name: 'ButtonLabel',
+  });
 
   const instanceId = doc.createInstance(componentId, pageId, { x: 200, y: 200 });
 

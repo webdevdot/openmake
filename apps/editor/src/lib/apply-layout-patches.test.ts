@@ -5,7 +5,14 @@ import { applyLayoutPatches } from './apply-layout-patches.js';
 function makeDocWithFrame() {
   const doc = OpenDoc.create();
   const pageId = doc.getPages()[0]!;
-  const frameId = doc.createNode({ type: 'FRAME', parentId: pageId, x: 0, y: 0, width: 100, height: 100 });
+  const frameId = doc.createNode({
+    type: 'FRAME',
+    parentId: pageId,
+    x: 0,
+    y: 0,
+    width: 100,
+    height: 100,
+  });
   return { doc, frameId };
 }
 
@@ -28,7 +35,14 @@ describe('applyLayoutPatches', () => {
   it('applies only the changed nodes when multiple patches are mixed', () => {
     const { doc, frameId } = makeDocWithFrame();
     const pageId = doc.getPages()[0]!;
-    const otherId = doc.createNode({ type: 'RECTANGLE', parentId: pageId, x: 0, y: 0, width: 10, height: 10 });
+    const otherId = doc.createNode({
+      type: 'RECTANGLE',
+      parentId: pageId,
+      x: 0,
+      y: 0,
+      width: 10,
+      height: 10,
+    });
     const updateSpy = vi.spyOn(doc, 'updateNode');
     const patches = new Map([
       [frameId, { x: 0, y: 0, width: 100, height: 100 }], // no-op

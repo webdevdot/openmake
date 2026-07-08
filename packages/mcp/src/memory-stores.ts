@@ -158,7 +158,10 @@ export class InMemoryIntelligenceStore implements IntelligenceStore {
     if (!needle) return [];
     const results: ComponentSearchResult[] = [];
     for (const entry of this.components.values()) {
-      if (entry.name.toLowerCase().includes(needle) || entry.description?.toLowerCase().includes(needle)) {
+      if (
+        entry.name.toLowerCase().includes(needle) ||
+        entry.description?.toLowerCase().includes(needle)
+      ) {
         results.push({ componentId: entry.id, name: entry.name, score: 1 });
       }
     }

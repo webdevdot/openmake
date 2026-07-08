@@ -4,7 +4,10 @@ import { HttpError, parseOrThrow } from '../plugins/error-handler.js';
 import { requireOrgRole } from '../plugins/auth.js';
 
 const OrgIdParamsSchema = z.object({ orgId: z.string().min(1) });
-const WorkflowIdParamsSchema = z.object({ orgId: z.string().min(1), workflowId: z.string().min(1) });
+const WorkflowIdParamsSchema = z.object({
+  orgId: z.string().min(1),
+  workflowId: z.string().min(1),
+});
 
 const StepSchema = z.object({ agentId: z.string().min(1), instructions: z.string().optional() });
 

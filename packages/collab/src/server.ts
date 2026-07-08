@@ -190,7 +190,8 @@ export class DocSyncHub {
       // them up (removeAwarenessStates) when that socket disconnects.
       const entry = room.sockets.get(origin as SocketLike);
       if (entry) {
-        for (const clientId of [...changes.added, ...changes.updated]) entry.clientIds.add(clientId);
+        for (const clientId of [...changes.added, ...changes.updated])
+          entry.clientIds.add(clientId);
         for (const clientId of changes.removed) entry.clientIds.delete(clientId);
       }
       this.broadcastAwareness(room, changed, origin);
@@ -200,12 +201,7 @@ export class DocSyncHub {
     return room;
   }
 
-  private handleMessage(
-    room: Room,
-    socket: SocketLike,
-    data: Uint8Array,
-    readOnly: boolean,
-  ): void {
+  private handleMessage(room: Room, socket: SocketLike, data: Uint8Array, readOnly: boolean): void {
     const decoder = toDecoder(data);
     const messageType = readMessageType(decoder);
     switch (messageType) {

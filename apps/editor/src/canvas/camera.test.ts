@@ -1,5 +1,15 @@
 import { describe, expect, it } from 'vitest';
-import { clampZoom, fitBounds, panBy, screenToWorld, worldToScreen, zoomAt, zoomByFactor } from './camera.js';
+import {
+  clampZoom,
+  fitBounds,
+  panBy,
+  screenToWorld,
+  worldToScreen,
+  zoomAt,
+  zoomByFactor,
+  MIN_ZOOM,
+  MAX_ZOOM,
+} from './camera.js';
 
 describe('camera', () => {
   it('round-trips screen <-> world at identity camera', () => {
@@ -46,6 +56,29 @@ describe('camera', () => {
     const camera = { x: 0, y: 0, zoom: 1 };
     const next = zoomByFactor(camera, { x: 0, y: 0 }, 2);
     expect(next.zoom).toBe(2);
+  });
+
+  it('zoomByFactor clamps to the min/max zoom bounds', () => {
+    const camera = { x: 0, y: 0, zoom: 1 };
+    expect(zoomByFactor(camera, { x: 0, y: 0 }, 1e-9).zoom).toBe(MIN_ZOOM);
+    expect(zoomByFactor(camera, { x: 0, y: 0 }, 1e9).zoom).toBe(MAX_ZOOM);
+  });
+
+  it('keyboard zoom steps (1.25 / 0.8) anchored at the viewport center keep the center fixed', () => {
+    // Mirrors the +/- shortcut wiring: zoomByFactor at the canvas viewport center.
+    const camera = { x: 40, y: -20, zoom: 2 };
+    const center = { x: 400, y: 300 };
+    const worldAtCenter = screenToWorld(camera, center);
+
+    const zoomedIn = zoomByFactor(camera, center, 1.25);
+    expect(zoomedIn.zoom).toBeCloseTo(2.5);
+    expect(screenToWorld(zoomedIn, center).x).toBeCloseTo(worldAtCenter.x);
+    expect(screenToWorld(zoomedIn, center).y).toBeCloseTo(worldAtCenter.y);
+
+    const zoomedOut = zoomByFactor(camera, center, 0.8);
+    expect(zoomedOut.zoom).toBeCloseTo(1.6);
+    expect(screenToWorld(zoomedOut, center).x).toBeCloseTo(worldAtCenter.x);
+    expect(screenToWorld(zoomedOut, center).y).toBeCloseTo(worldAtCenter.y);
   });
 
   it('fitBounds centers and scales to fit within the viewport', () => {

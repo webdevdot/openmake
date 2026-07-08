@@ -16,7 +16,10 @@ describe('FillsSection', () => {
       height: 10,
       fills: [{ type: 'SOLID', color: { r: 0, g: 0, b: 0, a: 1 }, opacity: 1, visible: true }],
     });
-    const node = doc.getNode(rectId) as Extract<ReturnType<typeof doc.getNode>, { fills: unknown[] }>;
+    const node = doc.getNode(rectId) as Extract<
+      ReturnType<typeof doc.getNode>,
+      { fills: unknown[] }
+    >;
     const updateSpy = vi.spyOn(doc, 'updateNode');
 
     render(<FillsSection doc={doc} node={node} />);
@@ -36,13 +39,26 @@ describe('FillsSection', () => {
   it('add fill button appends a new solid fill', () => {
     const doc = OpenDoc.create();
     const pageId = doc.getPages()[0]!;
-    const rectId = doc.createNode({ type: 'RECTANGLE', parentId: pageId, x: 0, y: 0, width: 10, height: 10, fills: [] });
-    const node = doc.getNode(rectId) as Extract<ReturnType<typeof doc.getNode>, { fills: unknown[] }>;
+    const rectId = doc.createNode({
+      type: 'RECTANGLE',
+      parentId: pageId,
+      x: 0,
+      y: 0,
+      width: 10,
+      height: 10,
+      fills: [],
+    });
+    const node = doc.getNode(rectId) as Extract<
+      ReturnType<typeof doc.getNode>,
+      { fills: unknown[] }
+    >;
     const updateSpy = vi.spyOn(doc, 'updateNode');
 
     render(<FillsSection doc={doc} node={node} />);
     fireEvent.click(screen.getByTestId('add-fill-button'));
 
-    expect(updateSpy).toHaveBeenCalledWith(rectId, { fills: [expect.objectContaining({ type: 'SOLID' })] });
+    expect(updateSpy).toHaveBeenCalledWith(rectId, {
+      fills: [expect.objectContaining({ type: 'SOLID' })],
+    });
   });
 });

@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 
-export type ToolId = 'select' | 'frame' | 'rectangle' | 'ellipse' | 'line' | 'text' | 'hand';
+export type ToolId =
+  'select' | 'frame' | 'rectangle' | 'ellipse' | 'line' | 'pen' | 'text' | 'hand';
 
 interface ToolState {
   tool: ToolId;

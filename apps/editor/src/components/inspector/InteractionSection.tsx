@@ -46,7 +46,10 @@ export function InteractionSection({ doc, node, pageId }: InteractionSectionProp
             value={reaction.action.destinationId ?? ''}
             onChange={(e) => {
               const next = [...reactions];
-              next[index] = { ...reaction, action: { ...reaction.action, type: 'NAVIGATE', destinationId: e.target.value } };
+              next[index] = {
+                ...reaction,
+                action: { ...reaction.action, type: 'NAVIGATE', destinationId: e.target.value },
+              };
               commit(next);
             }}
           >

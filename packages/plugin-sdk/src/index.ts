@@ -59,6 +59,8 @@ export interface OpenmakePluginAPI {
 }
 
 /** Entry-point helper: `export default definePlugin((api) => { ... })`. */
-export function definePlugin(fn: (api: OpenmakePluginAPI) => void): (api: OpenmakePluginAPI) => void {
+export function definePlugin(
+  fn: (api: OpenmakePluginAPI) => void,
+): (api: OpenmakePluginAPI) => void {
   return fn;
 }

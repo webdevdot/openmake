@@ -3,8 +3,18 @@ import { marqueeHits, normalizeRect, rectsIntersect } from './marquee.js';
 
 describe('marquee', () => {
   it('normalizeRect handles drags in any direction', () => {
-    expect(normalizeRect({ x: 10, y: 10 }, { x: 30, y: 40 })).toEqual({ x: 10, y: 10, width: 20, height: 30 });
-    expect(normalizeRect({ x: 30, y: 40 }, { x: 10, y: 10 })).toEqual({ x: 10, y: 10, width: 20, height: 30 });
+    expect(normalizeRect({ x: 10, y: 10 }, { x: 30, y: 40 })).toEqual({
+      x: 10,
+      y: 10,
+      width: 20,
+      height: 30,
+    });
+    expect(normalizeRect({ x: 30, y: 40 }, { x: 10, y: 10 })).toEqual({
+      x: 10,
+      y: 10,
+      width: 20,
+      height: 30,
+    });
   });
 
   it('rectsIntersect detects overlap and rejects merely-touching rects', () => {

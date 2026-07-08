@@ -44,7 +44,9 @@ export async function componentRoutes(app: FastifyInstance): Promise<void> {
       const designContext = buildDesignContext(doc, [nodeId]);
       const component = await app.db.components.findByNode(fileId, nodeId);
       const attachments = component ? await app.db.components.listAttachments(component.id) : [];
-      const generatedCode = component ? await app.db.components.listGeneratedCode(component.id) : [];
+      const generatedCode = component
+        ? await app.db.components.listGeneratedCode(component.id)
+        : [];
 
       return { designContext, component, attachments, generatedCode };
     },
@@ -78,7 +80,8 @@ export async function componentRoutes(app: FastifyInstance): Promise<void> {
           where: { id: body.workflowId, orgId },
           select: { id: true },
         });
-        if (!workflow) throw new HttpError(404, 'NOT_FOUND', `Workflow "${body.workflowId}" not found`);
+        if (!workflow)
+          throw new HttpError(404, 'NOT_FOUND', `Workflow "${body.workflowId}" not found`);
       }
 
       const doc = await loadOpenDoc(app.db, fileId);

@@ -46,9 +46,7 @@ export function initLayout(): Promise<Yoga> {
  */
 export function getYoga(): Yoga {
   if (!loadedYoga) {
-    throw new Error(
-      '@openmake/layout: call and await initLayout() before computeLayout()',
-    );
+    throw new Error('@openmake/layout: call and await initLayout() before computeLayout()');
   }
   return loadedYoga;
 }

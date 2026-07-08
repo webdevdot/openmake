@@ -10,7 +10,14 @@ describe('document hooks', () => {
     const initialVersion = result.current;
 
     act(() => {
-      doc.createNode({ type: 'RECTANGLE', parentId: doc.getPages()[0]!, x: 0, y: 0, width: 10, height: 10 });
+      doc.createNode({
+        type: 'RECTANGLE',
+        parentId: doc.getPages()[0]!,
+        x: 0,
+        y: 0,
+        width: 10,
+        height: 10,
+      });
     });
 
     expect(result.current).toBeGreaterThan(initialVersion);
@@ -19,7 +26,14 @@ describe('document hooks', () => {
   it('useNode returns the live node snapshot and updates after a mutation', () => {
     const doc = OpenDoc.create();
     const pageId = doc.getPages()[0]!;
-    const rectId = doc.createNode({ type: 'RECTANGLE', parentId: pageId, x: 0, y: 0, width: 10, height: 10 });
+    const rectId = doc.createNode({
+      type: 'RECTANGLE',
+      parentId: pageId,
+      x: 0,
+      y: 0,
+      width: 10,
+      height: 10,
+    });
 
     const { result } = renderHook(() => useNode(doc, rectId));
     expect(result.current?.x).toBe(0);
@@ -45,7 +59,14 @@ describe('document hooks', () => {
 
     let rectId = '';
     act(() => {
-      rectId = doc.createNode({ type: 'RECTANGLE', parentId: pageId, x: 0, y: 0, width: 10, height: 10 });
+      rectId = doc.createNode({
+        type: 'RECTANGLE',
+        parentId: pageId,
+        x: 0,
+        y: 0,
+        width: 10,
+        height: 10,
+      });
     });
 
     expect(result.current).toEqual([rectId]);

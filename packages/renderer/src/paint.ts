@@ -69,7 +69,13 @@ export function paintToSkPaint(
       const positions = paint.stops.map((stop) => stop.position);
       const shader =
         paint.type === 'GRADIENT_LINEAR'
-          ? ck.Shader.MakeLinearGradient([from.x, from.y], [to.x, to.y], colors, positions, ck.TileMode.Clamp)
+          ? ck.Shader.MakeLinearGradient(
+              [from.x, from.y],
+              [to.x, to.y],
+              colors,
+              positions,
+              ck.TileMode.Clamp,
+            )
           : ck.Shader.MakeRadialGradient(
               [from.x, from.y],
               Math.hypot(to.x - from.x, to.y - from.y) || 1,
@@ -117,7 +123,12 @@ function imageShader(
   const iw = image.width();
   const ih = image.height();
   if (scaleMode === 'TILE') {
-    return image.makeShaderOptions(ck.TileMode.Repeat, ck.TileMode.Repeat, ck.FilterMode.Linear, ck.MipmapMode.None);
+    return image.makeShaderOptions(
+      ck.TileMode.Repeat,
+      ck.TileMode.Repeat,
+      ck.FilterMode.Linear,
+      ck.MipmapMode.None,
+    );
   }
   // STRETCH fills the node exactly; FILL/FIT scale uniformly (FILL covers, FIT contains)
   // by pre-scaling via the local matrix so the shader maps image space -> node space.
@@ -184,7 +195,12 @@ export function applyEffects(ck: CanvasKit, paint: SkPaint, effects: Effect[]): 
       );
       paint.setImageFilter(filter);
     } else if (effect.type === 'LAYER_BLUR') {
-      const filter = ck.ImageFilter.MakeBlur(effect.radius / 2, effect.radius / 2, ck.TileMode.Decal, null);
+      const filter = ck.ImageFilter.MakeBlur(
+        effect.radius / 2,
+        effect.radius / 2,
+        ck.TileMode.Decal,
+        null,
+      );
       paint.setImageFilter(filter);
     }
     // INNER_SHADOW: TODO — approximate via a clipped inset drop-shadow layer; skipped for now.

@@ -1,5 +1,6 @@
 import type { CanvasKit, Path } from 'canvaskit-wasm';
 import type { SceneNode } from '@openmake/shared';
+import { regularPolygonPoints, starPoints } from '@openmake/core';
 
 type EllipseNode = Extract<SceneNode, { type: 'ELLIPSE' }>;
 type PolygonNode = Extract<SceneNode, { type: 'POLYGON' }>;
@@ -36,33 +37,4 @@ export function starPath(ck: CanvasKit, node: StarNode): Path {
   const builder = new ck.PathBuilder();
   builder.addPolygon(points, true);
   return builder.detach();
-}
-
-function regularPolygonPoints(width: number, height: number, count: number): number[] {
-  const cx = width / 2;
-  const cy = height / 2;
-  const rx = width / 2;
-  const ry = height / 2;
-  const points: number[] = [];
-  for (let i = 0; i < count; i++) {
-    // Start at the top (-90deg) and go clockwise.
-    const angle = -Math.PI / 2 + (i * 2 * Math.PI) / count;
-    points.push(cx + rx * Math.cos(angle), cy + ry * Math.sin(angle));
-  }
-  return points;
-}
-
-function starPoints(width: number, height: number, count: number, innerRadius: number): number[] {
-  const cx = width / 2;
-  const cy = height / 2;
-  const rx = width / 2;
-  const ry = height / 2;
-  const points: number[] = [];
-  const total = count * 2;
-  for (let i = 0; i < total; i++) {
-    const angle = -Math.PI / 2 + (i * Math.PI) / count;
-    const scale = i % 2 === 0 ? 1 : innerRadius;
-    points.push(cx + rx * scale * Math.cos(angle), cy + ry * scale * Math.sin(angle));
-  }
-  return points;
 }

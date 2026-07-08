@@ -107,7 +107,10 @@ export class ComponentRepo {
     });
   }
 
-  latestGeneratedCode(componentId: string, framework: CodeFramework): Promise<GeneratedCode | null> {
+  latestGeneratedCode(
+    componentId: string,
+    framework: CodeFramework,
+  ): Promise<GeneratedCode | null> {
     return this.prisma.generatedCode.findFirst({
       where: { componentId, framework },
       orderBy: { version: 'desc' },

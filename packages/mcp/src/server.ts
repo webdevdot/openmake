@@ -55,7 +55,7 @@ export function createOpenmakeMcpServer(deps: McpDeps): McpServer {
     {
       title: 'Read document',
       description:
-        'Read a document\'s metadata and page tree summary (page/frame/component ids, names, types, and child counts). Does NOT return the full node dump — use read_node for that.',
+        "Read a document's metadata and page tree summary (page/frame/component ids, names, types, and child counts). Does NOT return the full node dump — use read_node for that.",
       inputSchema: { fileId: z.string() },
     },
     async ({ fileId }) => {
@@ -94,7 +94,8 @@ export function createOpenmakeMcpServer(deps: McpDeps): McpServer {
     'create_node',
     {
       title: 'Create node',
-      description: 'Create a new scene node (frame, text, rectangle, component, etc.) under a parent container.',
+      description:
+        'Create a new scene node (frame, text, rectangle, component, etc.) under a parent container.',
       inputSchema: {
         fileId: z.string(),
         parentId: z.string(),
@@ -209,7 +210,8 @@ export function createOpenmakeMcpServer(deps: McpDeps): McpServer {
     'create_instance',
     {
       title: 'Create instance',
-      description: 'Create an instance of a component at a given position inside a parent container.',
+      description:
+        'Create an instance of a component at a given position inside a parent container.',
       inputSchema: {
         fileId: z.string(),
         componentId: z.string(),
@@ -282,7 +284,12 @@ export function createOpenmakeMcpServer(deps: McpDeps): McpServer {
           component = { id, name: node.name };
         }
 
-        await intelligence.attachIntelligence(component.id, { skillId, agentId, workflowId, prompts });
+        await intelligence.attachIntelligence(component.id, {
+          skillId,
+          agentId,
+          workflowId,
+          prompts,
+        });
         return ok({ componentId: component.id });
       } catch (error) {
         return fail(error);
@@ -294,7 +301,8 @@ export function createOpenmakeMcpServer(deps: McpDeps): McpServer {
     'list_skills',
     {
       title: 'List skills',
-      description: 'List all available Skills (system-prompt fragments an Agent can be composed from).',
+      description:
+        'List all available Skills (system-prompt fragments an Agent can be composed from).',
       inputSchema: {},
     },
     async () => {
@@ -343,7 +351,7 @@ export function createOpenmakeMcpServer(deps: McpDeps): McpServer {
     {
       title: 'Run workflow',
       description:
-        'Run a multi-agent Workflow against a node\'s design context and a user request, returning each step\'s output plus the final result. Requires the host to have configured an AI engine.',
+        "Run a multi-agent Workflow against a node's design context and a user request, returning each step's output plus the final result. Requires the host to have configured an AI engine.",
       inputSchema: {
         workflowId: z.string(),
         fileId: z.string(),
@@ -355,7 +363,9 @@ export function createOpenmakeMcpServer(deps: McpDeps): McpServer {
     async ({ workflowId, fileId, nodeId, request, framework }) => {
       try {
         if (!deps.aiEngine) {
-          return fail('No AI engine is configured on this MCP server; run_workflow is unavailable.');
+          return fail(
+            'No AI engine is configured on this MCP server; run_workflow is unavailable.',
+          );
         }
         const workflows = await intelligence.listWorkflows();
         const workflow = workflows.find((w) => w.id === workflowId);
@@ -414,7 +424,8 @@ export function createOpenmakeMcpServer(deps: McpDeps): McpServer {
     'save_generated_code',
     {
       title: 'Save generated code',
-      description: 'Save a (possibly hand-edited) generated code string for a node as a new version.',
+      description:
+        'Save a (possibly hand-edited) generated code string for a node as a new version.',
       inputSchema: {
         fileId: z.string(),
         nodeId: z.string(),
@@ -446,7 +457,8 @@ export function createOpenmakeMcpServer(deps: McpDeps): McpServer {
     'get_generated_code',
     {
       title: 'Get generated code',
-      description: 'Get previously generated/saved code versions for a node, optionally filtered by framework.',
+      description:
+        'Get previously generated/saved code versions for a node, optionally filtered by framework.',
       inputSchema: {
         fileId: z.string(),
         nodeId: z.string(),

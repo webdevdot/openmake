@@ -35,7 +35,8 @@ export function StrokesSection({ doc, node }: StrokesSectionProps) {
         </button>
       </div>
       {strokes.map((stroke, index) => {
-        const color = stroke.paint.type === 'SOLID' ? stroke.paint.color : { r: 0, g: 0, b: 0, a: 1 };
+        const color =
+          stroke.paint.type === 'SOLID' ? stroke.paint.color : { r: 0, g: 0, b: 0, a: 1 };
         return (
           <div key={index} className="flex items-center gap-1 py-0.5">
             <input
@@ -46,7 +47,10 @@ export function StrokesSection({ doc, node }: StrokesSectionProps) {
                 const c = hexToColor(e.target.value);
                 if (!c || stroke.paint.type !== 'SOLID') return;
                 const next = [...strokes];
-                next[index] = { ...stroke, paint: { ...stroke.paint, color: { ...c, a: color.a } } };
+                next[index] = {
+                  ...stroke,
+                  paint: { ...stroke.paint, color: { ...c, a: color.a } },
+                };
                 commit(next);
               }}
             />

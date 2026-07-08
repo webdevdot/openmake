@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import * as Y from 'yjs';
 import { OpenDoc } from '@openmake/core';
 import { CollabClient } from '../src/client.js';
@@ -19,6 +19,10 @@ async function waitFor(assertion: () => void, timeoutMs = 2000): Promise<void> {
 }
 
 describe('CollabClient', () => {
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
   it('emits connecting -> connected status and fires synced after first SyncStep2', async () => {
     const hub = new DocSyncHub(new MemoryPersistence());
     const WebSocketImpl = createHubBackedWebSocket(hub);
@@ -78,8 +82,14 @@ describe('CollabClient', () => {
     const WebSocketImpl = createHubBackedWebSocket(hub);
     const docId = 'doc-awareness';
 
-    const a = new CollabClient('ws://test/rooms', docId, new Y.Doc(), { WebSocketImpl, connect: false });
-    const b = new CollabClient('ws://test/rooms', docId, new Y.Doc(), { WebSocketImpl, connect: false });
+    const a = new CollabClient('ws://test/rooms', docId, new Y.Doc(), {
+      WebSocketImpl,
+      connect: false,
+    });
+    const b = new CollabClient('ws://test/rooms', docId, new Y.Doc(), {
+      WebSocketImpl,
+      connect: false,
+    });
     const aSynced = new Promise<void>((resolve) => a.on('synced', () => resolve()));
     const bSynced = new Promise<void>((resolve) => b.on('synced', () => resolve()));
     a.connect();
@@ -108,7 +118,10 @@ describe('CollabClient', () => {
 
     const aYDoc = new Y.Doc();
     const a = new CollabClient('ws://test/rooms', docId, aYDoc, { WebSocketImpl, connect: false });
-    const b = new CollabClient('ws://test/rooms', docId, new Y.Doc(), { WebSocketImpl, connect: false });
+    const b = new CollabClient('ws://test/rooms', docId, new Y.Doc(), {
+      WebSocketImpl,
+      connect: false,
+    });
     const aSynced = new Promise<void>((resolve) => a.on('synced', () => resolve()));
     const bSynced = new Promise<void>((resolve) => b.on('synced', () => resolve()));
     a.connect();
@@ -130,6 +143,114 @@ describe('CollabClient', () => {
     await hub.destroy();
   });
 
+  it('resolves a function token before every connect attempt and puts it in the URL', async () => {
+    // Only fake the timers the client's backoff uses; microtasks stay real so
+    // the token promise and socket events still flush with plain awaits.
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
+    const flushMicrotasks = async (): Promise<void> => {
+      for (let i = 0; i < 10; i += 1) await Promise.resolve();
+    };
+
+    const urls: string[] = [];
+    const sockets: RecordingSocket[] = [];
+
+    class RecordingSocket {
+      static readonly CONNECTING = 0;
+      static readonly OPEN = 1;
+      static readonly CLOSING = 2;
+      static readonly CLOSED = 3;
+
+      readyState = 0;
+      binaryType = 'arraybuffer';
+      url: string;
+
+      private readonly listeners = new Map<string, Set<(ev: unknown) => void>>();
+
+      constructor(url: string) {
+        this.url = url;
+        urls.push(url);
+        sockets.push(this);
+        queueMicrotask(() => {
+          if (this.readyState !== RecordingSocket.CLOSED) {
+            this.readyState = RecordingSocket.OPEN;
+            this.emit('open', {});
+          }
+        });
+      }
+
+      send(): void {}
+
+      close(): void {
+        this.serverClose();
+      }
+
+      /** Simulates the server dropping the connection (optionally with a close code). */
+      serverClose(code?: number): void {
+        if (this.readyState === RecordingSocket.CLOSED) return;
+        this.readyState = RecordingSocket.CLOSED;
+        queueMicrotask(() => this.emit('close', code === undefined ? {} : { code }));
+      }
+
+      addEventListener(event: string, cb: (ev: unknown) => void): void {
+        let set = this.listeners.get(event);
+        if (!set) {
+          set = new Set();
+          this.listeners.set(event, set);
+        }
+        set.add(cb);
+      }
+
+      removeEventListener(event: string, cb: (ev: unknown) => void): void {
+        this.listeners.get(event)?.delete(cb);
+      }
+
+      private emit(event: string, ev: unknown): void {
+        const set = this.listeners.get(event);
+        if (!set) return;
+        for (const cb of set) cb(ev);
+      }
+    }
+
+    const tokenFn = vi.fn(async () => `tok-${tokenFn.mock.calls.length}`);
+    const client = new CollabClient('ws://test/rooms', 'doc-token', new Y.Doc(), {
+      WebSocketImpl: RecordingSocket as unknown as typeof WebSocket,
+      token: tokenFn,
+      connect: false,
+    });
+
+    try {
+      // Initial connect resolves the token and puts it on the URL.
+      client.connect();
+      await flushMicrotasks();
+      expect(tokenFn).toHaveBeenCalledTimes(1);
+      expect(urls).toHaveLength(1);
+      expect(new URL(urls[0]!).searchParams.get('token')).toBe('tok-1');
+
+      // Server drops the connection: the reconnect attempt must call the
+      // token function again and use the NEW value, not the stale one.
+      sockets[0]!.serverClose(1008);
+      await flushMicrotasks();
+      expect(client.lastCloseCode).toBe(1008);
+      await vi.advanceTimersByTimeAsync(1000); // first backoff: 500ms + jitter
+      await flushMicrotasks();
+      expect(tokenFn).toHaveBeenCalledTimes(2);
+      expect(urls).toHaveLength(2);
+      expect(new URL(urls[1]!).searchParams.get('token')).toBe('tok-2');
+
+      // A second drop reconnects with yet another freshly resolved token.
+      sockets[1]!.serverClose();
+      await flushMicrotasks();
+      expect(client.lastCloseCode).toBeNull();
+      await vi.advanceTimersByTimeAsync(2000); // second backoff: 1000ms + jitter
+      await flushMicrotasks();
+      expect(tokenFn).toHaveBeenCalledTimes(3);
+      expect(urls).toHaveLength(3);
+      expect(new URL(urls[2]!).searchParams.get('token')).toBe('tok-3');
+    } finally {
+      client.destroy();
+    }
+  });
+
   it('two clients converge in both directions through the hub', async () => {
     const hub = new DocSyncHub(new MemoryPersistence());
     const WebSocketImpl = createHubBackedWebSocket(hub);
@@ -137,7 +258,10 @@ describe('CollabClient', () => {
 
     const openA = OpenDoc.create({ name: 'shared doc' });
     const ydocB = new Y.Doc();
-    const a = new CollabClient('ws://test/rooms', docId, openA.ydoc, { WebSocketImpl, connect: false });
+    const a = new CollabClient('ws://test/rooms', docId, openA.ydoc, {
+      WebSocketImpl,
+      connect: false,
+    });
     const b = new CollabClient('ws://test/rooms', docId, ydocB, { WebSocketImpl, connect: false });
     const aSynced = new Promise<void>((resolve) => a.on('synced', () => resolve()));
     const bSynced = new Promise<void>((resolve) => b.on('synced', () => resolve()));

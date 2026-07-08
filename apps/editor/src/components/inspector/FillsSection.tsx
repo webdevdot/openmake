@@ -8,7 +8,12 @@ export interface FillsSectionProps {
   node: Extract<SceneNode, { fills: Paint[] }>;
 }
 
-const NEW_FILL: Paint = { type: 'SOLID', color: { r: 0.8, g: 0.8, b: 0.8, a: 1 }, opacity: 1, visible: true };
+const NEW_FILL: Paint = {
+  type: 'SOLID',
+  color: { r: 0.8, g: 0.8, b: 0.8, a: 1 },
+  opacity: 1,
+  visible: true,
+};
 
 export function FillsSection({ doc, node }: FillsSectionProps) {
   const fills = node.fills ?? [];
@@ -43,8 +48,18 @@ export function FillsSection({ doc, node }: FillsSectionProps) {
   );
 }
 
-function FillRow({ fill, onChange, onRemove }: { fill: Paint; onChange: (fill: Paint) => void; onRemove: () => void }) {
-  const [hexDraft, setHexDraft] = useState(fill.type === 'SOLID' ? colorToHex(fill.color) : '#000000');
+function FillRow({
+  fill,
+  onChange,
+  onRemove,
+}: {
+  fill: Paint;
+  onChange: (fill: Paint) => void;
+  onRemove: () => void;
+}) {
+  const [hexDraft, setHexDraft] = useState(
+    fill.type === 'SOLID' ? colorToHex(fill.color) : '#000000',
+  );
 
   if (fill.type !== 'SOLID') {
     return (
@@ -90,7 +105,9 @@ function FillRow({ fill, onChange, onRemove }: { fill: Paint; onChange: (fill: P
         data-testid="fill-alpha-input"
         className="w-12 rounded border bg-transparent px-1 py-0.5 text-xs border-app"
         value={Math.round(fill.color.a * 100)}
-        onChange={(e) => onChange({ ...fill, color: { ...fill.color, a: Number(e.target.value) / 100 } })}
+        onChange={(e) =>
+          onChange({ ...fill, color: { ...fill.color, a: Number(e.target.value) / 100 } })
+        }
       />
       <button
         type="button"
@@ -100,7 +117,12 @@ function FillRow({ fill, onChange, onRemove }: { fill: Paint; onChange: (fill: P
       >
         {fill.visible ? '👁' : '—'}
       </button>
-      <button type="button" data-testid="remove-fill-button" className="text-xs text-secondary-app" onClick={onRemove}>
+      <button
+        type="button"
+        data-testid="remove-fill-button"
+        className="text-xs text-secondary-app"
+        onClick={onRemove}
+      >
         ✕
       </button>
     </div>

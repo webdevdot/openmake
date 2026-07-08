@@ -43,7 +43,11 @@ export function TextSection({ doc, node }: TextSectionProps) {
             type="button"
             data-testid={`text-align-${align.toLowerCase()}`}
             className="flex-1 rounded border py-0.5 text-xs bg-hover-app border-app"
-            style={node.textStyle.textAlign === align ? { backgroundColor: 'var(--bg-active)' } : undefined}
+            style={
+              node.textStyle.textAlign === align
+                ? { backgroundColor: 'var(--bg-active)' }
+                : undefined
+            }
             onClick={() => update({ textAlign: align })}
           >
             {align[0]}

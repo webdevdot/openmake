@@ -11,6 +11,14 @@ export interface PresentOverlayProps {
   onExit: () => void;
 }
 
+/** Breathing room between the presented frame and the viewport edges (px per side). */
+const PRESENT_FIT_PADDING = 48;
+
+/** Camera that fits the presented frame inside the viewport with a margin. */
+function presentCamera(doc: OpenDoc, frameId: string, viewport: { width: number; height: number }) {
+  return fitBounds(getWorldBounds(doc, frameId), viewport, PRESENT_FIT_PADDING);
+}
+
 /** Full-screen prototype presentation: renders a frame, hotspots navigate via reactions. */
 export function PresentOverlay({ doc, pageId, startFrameId, onExit }: PresentOverlayProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -59,8 +67,7 @@ export function PresentOverlay({ doc, pageId, startFrameId, onExit }: PresentOve
     canvas.height = Math.round(height * dpr);
     renderer.resize(width, height, dpr);
     const scene = buildRenderScene(doc, pageId);
-    const bounds = getWorldBounds(doc, currentFrameId);
-    const camera = fitBounds(bounds, { width, height }, 0);
+    const camera = presentCamera(doc, currentFrameId, { width, height });
     renderer.render(scene, camera);
   };
 
@@ -73,8 +80,7 @@ export function PresentOverlay({ doc, pageId, startFrameId, onExit }: PresentOve
     if (!canvas) return;
     const width = window.innerWidth;
     const height = window.innerHeight;
-    const bounds = getWorldBounds(doc, currentFrameId);
-    const camera = fitBounds(bounds, { width, height }, 0);
+    const camera = presentCamera(doc, currentFrameId, { width, height });
     const rect = canvas.getBoundingClientRect();
     const screen = { x: e.clientX - rect.left, y: e.clientY - rect.top };
     const world = { x: screen.x / camera.zoom + camera.x, y: screen.y / camera.zoom + camera.y };
@@ -95,11 +101,15 @@ export function PresentOverlay({ doc, pageId, startFrameId, onExit }: PresentOve
 
   return (
     <div className="fixed inset-0 z-50 bg-black" data-testid="present-overlay">
-      <canvas ref={canvasRef} style={{ width: '100vw', height: '100vh', display: 'block' }} onClick={onClick} />
+      <canvas
+        ref={canvasRef}
+        style={{ width: '100vw', height: '100vh', display: 'block' }}
+        onClick={onClick}
+      />
       <button
         type="button"
         data-testid="present-exit-button"
-        className="absolute right-4 top-4 rounded bg-white/10 px-2 py-1 text-xs text-white"
+        className="absolute right-4 top-4 rounded-md border border-app bg-floating-app px-3 py-1.5 text-xs font-medium text-zinc-100"
         onClick={onExit}
       >
         Exit (Esc)

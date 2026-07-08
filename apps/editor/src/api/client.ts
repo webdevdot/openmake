@@ -96,7 +96,11 @@ export async function apiRequest<T>(path: string, opts: RequestOptions = {}): Pr
   if (res.status === 401 && opts._isRetry) {
     onLogout();
     const body = (await parseBody(res)) as Partial<ApiErrorBody> | undefined;
-    throw new ApiError(401, body?.error?.code ?? 'UNAUTHENTICATED', body?.error?.message ?? 'Session expired');
+    throw new ApiError(
+      401,
+      body?.error?.code ?? 'UNAUTHENTICATED',
+      body?.error?.message ?? 'Session expired',
+    );
   }
 
   if (!res.ok) {

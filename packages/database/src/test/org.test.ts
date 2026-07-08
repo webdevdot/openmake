@@ -71,6 +71,8 @@ describe('OrgRepo', () => {
     });
     await ctx.db.orgs.create({ name: 'Delta', slug: 'delta', ownerId: owner.id });
 
-    await expect(ctx.db.orgs.create({ name: 'Delta 2', slug: 'delta', ownerId: owner.id })).rejects.toThrow();
+    await expect(
+      ctx.db.orgs.create({ name: 'Delta 2', slug: 'delta', ownerId: owner.id }),
+    ).rejects.toThrow();
   });
 });

@@ -14,7 +14,12 @@ const TOOL_TO_NODE_TYPE: Partial<Record<string, NodeType>> = {
   line: 'LINE',
 };
 
-const DEFAULT_FILL = { type: 'SOLID' as const, color: { r: 0.85, g: 0.85, b: 0.85, a: 1 }, opacity: 1, visible: true };
+const DEFAULT_FILL = {
+  type: 'SOLID' as const,
+  color: { r: 0.85, g: 0.85, b: 0.85, a: 1 },
+  opacity: 1,
+  visible: true,
+};
 
 export function useCreateShapeGesture({
   doc,
@@ -43,7 +48,9 @@ export function useCreateShapeGesture({
       y: world.y,
       width: 1,
       height: 1,
-      ...(nodeType === 'LINE' ? { strokes: [{ paint: DEFAULT_FILL, weight: 1, align: 'CENTER' as const }] } : { fills: [DEFAULT_FILL] }),
+      ...(nodeType === 'LINE'
+        ? { strokes: [{ paint: DEFAULT_FILL, weight: 1, align: 'CENTER' as const }] }
+        : { fills: [DEFAULT_FILL] }),
     });
     draftId.current = id;
     useSelectionStore.getState().set([id]);
@@ -55,9 +62,19 @@ export function useCreateShapeGesture({
     const rect = normalizeRect(startWorld.current, world);
     if (e.shiftKey) {
       const size = Math.max(rect.width, rect.height);
-      doc.updateNode(draftId.current, { x: rect.x, y: rect.y, width: size || 1, height: size || 1 });
+      doc.updateNode(draftId.current, {
+        x: rect.x,
+        y: rect.y,
+        width: size || 1,
+        height: size || 1,
+      });
     } else {
-      doc.updateNode(draftId.current, { x: rect.x, y: rect.y, width: rect.width || 1, height: rect.height || 1 });
+      doc.updateNode(draftId.current, {
+        x: rect.x,
+        y: rect.y,
+        width: rect.width || 1,
+        height: rect.height || 1,
+      });
     }
   };
 

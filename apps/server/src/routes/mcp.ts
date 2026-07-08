@@ -22,7 +22,9 @@ function forbidden(reply: FastifyReply, message: string): void {
 export async function mcpRoutes(app: FastifyInstance): Promise<void> {
   app.post('/mcp', async (request, reply) => {
     const authHeader = request.headers.authorization;
-    const token = authHeader?.startsWith('Bearer ') ? authHeader.slice('Bearer '.length).trim() : undefined;
+    const token = authHeader?.startsWith('Bearer ')
+      ? authHeader.slice('Bearer '.length).trim()
+      : undefined;
     if (!token || !token.startsWith('om_')) {
       unauthorized(reply, 'Missing or malformed API key');
       return;

@@ -83,7 +83,8 @@ function serializeOwnGeometry(node: SceneNode): string {
     case 'INSTANCE': {
       const r = 'cornerRadius' in node ? (node.cornerRadius ?? 0) : 0;
       return (
-        rectTag(node.width, node.height, r, node.fills, node.effects) + strokeTags(node, rectAttrs(node.width, node.height, r))
+        rectTag(node.width, node.height, r, node.fills, node.effects) +
+        strokeTags(node, rectAttrs(node.width, node.height, r))
       );
     }
     case 'ELLIPSE': {
@@ -106,11 +107,16 @@ function serializeOwnGeometry(node: SceneNode): string {
       return strokeTags(node, attrs, 'line');
     }
     case 'VECTOR': {
-      return tag('path', `d="${node.path}"`, node.fills) + strokeTags(node, `d="${node.path}"`, 'path');
+      return (
+        tag('path', `d="${node.path}"`, node.fills) + strokeTags(node, `d="${node.path}"`, 'path')
+      );
     }
     case 'TEXT': {
       const fill = node.fills?.find((p) => p.visible && p.type === 'SOLID');
-      const fillAttr = fill && fill.type === 'SOLID' ? ` fill="${colorToRgb(fill.color)}" fill-opacity="${fill.opacity}"` : '';
+      const fillAttr =
+        fill && fill.type === 'SOLID'
+          ? ` fill="${colorToRgb(fill.color)}" fill-opacity="${fill.opacity}"`
+          : '';
       const ts = node.textStyle;
       return (
         `<text x="0" y="${ts.fontSize}" font-family="${escapeXml(ts.fontFamily)}" font-size="${ts.fontSize}" ` +
@@ -124,7 +130,13 @@ function rectAttrs(width: number, height: number, r: number): string {
   return `x="0" y="0" width="${width}" height="${height}"${r ? ` rx="${r}" ry="${r}"` : ''}`;
 }
 
-function rectTag(width: number, height: number, r: number, fills: Paint[], _effects: unknown[]): string {
+function rectTag(
+  width: number,
+  height: number,
+  r: number,
+  fills: Paint[],
+  _effects: unknown[],
+): string {
   return tag('rect', rectAttrs(width, height, r), fills);
 }
 
@@ -143,7 +155,9 @@ function fillAttrs(fills: Paint[] | undefined): string {
     // Approximate: use the first stop's color as a flat fill (gradient <defs> would
     // require a per-shape unique id scheme; string-level tests only check element shape).
     const first = fill.stops[0];
-    return first ? ` fill="${colorToRgb(first.color)}" fill-opacity="${fill.opacity}"` : ' fill="none"';
+    return first
+      ? ` fill="${colorToRgb(first.color)}" fill-opacity="${fill.opacity}"`
+      : ' fill="none"';
   }
   return ' fill="none"'; // IMAGE fills are not embedded in SVG output.
 }
@@ -158,7 +172,9 @@ function strokeTags(
     .map((stroke) => {
       if (!stroke.paint.visible) return '';
       const color = stroke.paint.type === 'SOLID' ? colorToRgb(stroke.paint.color) : '#000000';
-      const dash = stroke.dashPattern?.length ? ` stroke-dasharray="${stroke.dashPattern.join(',')}"` : '';
+      const dash = stroke.dashPattern?.length
+        ? ` stroke-dasharray="${stroke.dashPattern.join(',')}"`
+        : '';
       const name = tagName ?? (node.type === 'LINE' ? 'line' : 'rect');
       return `<${name} ${attrs} fill="none" stroke="${color}" stroke-width="${stroke.weight}"${dash}/>`;
     })
@@ -216,5 +232,9 @@ function colorToRgb(color: Color): string {
 }
 
 function escapeXml(input: string): string {
-  return input.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  return input
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
 }

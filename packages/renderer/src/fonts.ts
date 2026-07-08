@@ -33,7 +33,11 @@ let cachedProvider: { ck: CanvasKit; provider: TypefaceFontProvider; count: numb
  * was created.
  */
 export function getFontProvider(ck: CanvasKit): TypefaceFontProvider {
-  if (cachedProvider && cachedProvider.ck === ck && cachedProvider.count === registeredFonts.length) {
+  if (
+    cachedProvider &&
+    cachedProvider.ck === ck &&
+    cachedProvider.count === registeredFonts.length
+  ) {
     return cachedProvider.provider;
   }
   const provider = ck.TypefaceFontProvider.Make();

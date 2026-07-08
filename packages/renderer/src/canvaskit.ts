@@ -25,7 +25,8 @@ export function loadCanvasKit(opts?: LoadCanvasKitOptions): Promise<CanvasKit> {
         const require = createRequire(import.meta.url);
         const CanvasKitInit = require('canvaskit-wasm/bin/canvaskit.js') as CanvasKitInitFn;
         return CanvasKitInit({
-          locateFile: opts?.locateFile ?? ((file: string) => require.resolve('canvaskit-wasm/bin/' + file)),
+          locateFile:
+            opts?.locateFile ?? ((file: string) => require.resolve('canvaskit-wasm/bin/' + file)),
         });
       }
       // Browser: the JS half of CanvasKit is a normal dependency the bundler

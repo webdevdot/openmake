@@ -1,8 +1,11 @@
+import { readFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
 import { beforeAll, describe, expect, it } from 'vitest';
 import type { CanvasKit } from 'canvaskit-wasm';
 import { OpenDoc } from '@openmake/core';
 import { buildRenderScene } from '../src/scene.js';
 import { createCanvasKitRenderer, type TestableRenderer } from '../src/renderer.js';
+import { clearRegisteredFonts, registerFont } from '../src/fonts.js';
 import { getCanvasKit, readPixel, expectRGBA } from './setup.js';
 
 let ck: CanvasKit;
@@ -219,6 +222,60 @@ describe('CanvasKitRenderer.render', () => {
     // occupies screen pixels 20..60, so (35, 35) should now be filled.
     expectRGBA(readPixel(ck, renderer.getSurface(), 35, 35), { r: 255, g: 0, b: 0, a: 255 });
   });
+
+  it('draws a registered-font TEXT node without throwing on the ParagraphStyle marshaller', async () => {
+    // Regression: a bare ParagraphStyle object literal makes CanvasKit's
+    // emscripten binding throw `Missing field: "disableHinting"` inside
+    // MakeFromFontProvider, which killed the whole render loop for any
+    // document containing text. drawText early-returns for unregistered
+    // fonts, so text is only exercised once a real font is registered —
+    // register Inter (the app default) here to hit the actual path.
+    const interBytes = new Uint8Array(
+      readFileSync(
+        fileURLToPath(
+          new URL('../../../apps/editor/src/assets/fonts/Inter-Regular.ttf', import.meta.url),
+        ),
+      ),
+    );
+    registerFont(interBytes, 'Inter');
+    try {
+      const { doc, pageId } = newDocWithPage();
+      doc.createNode({
+        type: 'TEXT',
+        parentId: pageId,
+        x: 5,
+        y: 5,
+        width: 200,
+        height: 40,
+        characters: 'Hello',
+        textStyle: {
+          fontFamily: 'Inter',
+          fontSize: 32,
+          fontWeight: 400,
+          fontStyle: 'NORMAL',
+          lineHeight: 'AUTO',
+          letterSpacing: 0,
+          textAlign: 'LEFT',
+          textDecoration: 'NONE',
+        },
+        fills: [{ type: 'SOLID', color: { r: 0, g: 0, b: 0, a: 1 }, opacity: 1, visible: true }],
+      });
+      const scene = buildRenderScene(doc, pageId);
+      const renderer = await makeRenderer();
+      // The assertion is that this does not throw; also confirm ink landed by
+      // scanning the glyph band for at least one non-background (dark) pixel.
+      expect(() => renderer.render(scene, { x: 0, y: 0, zoom: 1 })).not.toThrow();
+      let inked = false;
+      for (let x = 5; x < 120 && !inked; x += 1) {
+        for (let y = 5; y < 45 && !inked; y += 1) {
+          if (readPixel(ck, renderer.getSurface(), x, y).r < 128) inked = true;
+        }
+      }
+      expect(inked).toBe(true);
+    } finally {
+      clearRegisteredFonts();
+    }
+  });
 });
 
 describe('CanvasKitRenderer.exportPNG', () => {
@@ -237,7 +294,9 @@ describe('CanvasKitRenderer.exportPNG', () => {
     const renderer = await makeRenderer();
     const bytes = await renderer.exportPNG(scene);
 
-    expect(Array.from(bytes.subarray(0, 8))).toEqual([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
+    expect(Array.from(bytes.subarray(0, 8))).toEqual([
+      0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a,
+    ]);
 
     // IHDR chunk: 4 (length) + 4 ('IHDR') + width(4) + height(4), big-endian, starting at byte 8.
     const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
@@ -272,8 +331,18 @@ describe('buildRenderScene', () => {
   it('expands an instance into synthetic nodes and excludes invisible nodes', () => {
     const doc = OpenDoc.create();
     const pageId = doc.getPages()[0]!;
-    const componentFrameId = doc.createNode({ type: 'FRAME', parentId: pageId, width: 40, height: 40 });
-    const visibleChildId = doc.createNode({ type: 'RECTANGLE', parentId: componentFrameId, width: 10, height: 10 });
+    const componentFrameId = doc.createNode({
+      type: 'FRAME',
+      parentId: pageId,
+      width: 40,
+      height: 40,
+    });
+    const visibleChildId = doc.createNode({
+      type: 'RECTANGLE',
+      parentId: componentFrameId,
+      width: 10,
+      height: 10,
+    });
     const invisibleChildId = doc.createNode({
       type: 'RECTANGLE',
       parentId: componentFrameId,
@@ -299,7 +368,12 @@ describe('buildRenderScene', () => {
     const doc = OpenDoc.create();
     const pageId = doc.getPages()[0]!;
     doc.createNode({ type: 'RECTANGLE', parentId: pageId, width: 10, height: 10, visible: false });
-    const visibleId = doc.createNode({ type: 'RECTANGLE', parentId: pageId, width: 10, height: 10 });
+    const visibleId = doc.createNode({
+      type: 'RECTANGLE',
+      parentId: pageId,
+      width: 10,
+      height: 10,
+    });
 
     const scene = buildRenderScene(doc, pageId);
 

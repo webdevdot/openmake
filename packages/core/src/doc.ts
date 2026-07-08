@@ -283,7 +283,11 @@ export class OpenDoc {
     if (!CONTAINER_TYPES.has(targetType)) {
       throw new Error(`Target parent "${newParentId}" (${targetType}) is not a container`);
     }
-    for (let ancestor: string | undefined = newParentId; ancestor; ancestor = this.getParentId(ancestor)) {
+    for (
+      let ancestor: string | undefined = newParentId;
+      ancestor;
+      ancestor = this.getParentId(ancestor)
+    ) {
       if (ancestor === id) throw new Error('Cannot move a node into its own subtree (cycle)');
     }
     this.transact(() => {
@@ -345,7 +349,11 @@ export class OpenDoc {
     return id;
   }
 
-  createInstance(componentId: string, parentId: string, position: { x: number; y: number }): string {
+  createInstance(
+    componentId: string,
+    parentId: string,
+    position: { x: number; y: number },
+  ): string {
     const component = this.getNode(componentId);
     if (component?.type !== 'COMPONENT') {
       throw new Error(`Node "${componentId}" is not a component`);

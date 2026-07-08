@@ -80,9 +80,17 @@ export async function commentRoutes(app: FastifyInstance): Promise<void> {
 
       const isAuthor = comment.authorId === request.user!.id;
       if (!isAuthor) {
-        const hasAdmin = await app.db.orgs.hasAtLeastRole(request.orgId!, request.user!.id, 'ADMIN');
+        const hasAdmin = await app.db.orgs.hasAtLeastRole(
+          request.orgId!,
+          request.user!.id,
+          'ADMIN',
+        );
         if (!hasAdmin) {
-          throw new HttpError(403, 'FORBIDDEN', 'Only the author or an admin can delete this comment');
+          throw new HttpError(
+            403,
+            'FORBIDDEN',
+            'Only the author or an admin can delete this comment',
+          );
         }
       }
 

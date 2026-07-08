@@ -18,7 +18,10 @@ const DEFAULT_AUTO_LAYOUT: AutoLayout = {
   wrap: false,
 };
 
-const ALIGN_GRID: Array<{ align: AutoLayout['alignItems']; justify: AutoLayout['justifyContent'] }> = [
+const ALIGN_GRID: Array<{
+  align: AutoLayout['alignItems'];
+  justify: AutoLayout['justifyContent'];
+}> = [
   { align: 'MIN', justify: 'MIN' },
   { align: 'CENTER', justify: 'MIN' },
   { align: 'MAX', justify: 'MIN' },
@@ -62,7 +65,11 @@ export function AutoLayoutSection({ doc, node }: AutoLayoutSectionProps) {
               type="button"
               data-testid="auto-layout-direction-horizontal"
               className="flex-1 rounded border py-0.5 text-xs bg-hover-app border-app"
-              style={autoLayout.mode === 'HORIZONTAL' ? { backgroundColor: 'var(--bg-active)' } : undefined}
+              style={
+                autoLayout.mode === 'HORIZONTAL'
+                  ? { backgroundColor: 'var(--bg-active)' }
+                  : undefined
+              }
               onClick={() => commit({ mode: 'HORIZONTAL' })}
             >
               Horizontal
@@ -71,7 +78,9 @@ export function AutoLayoutSection({ doc, node }: AutoLayoutSectionProps) {
               type="button"
               data-testid="auto-layout-direction-vertical"
               className="flex-1 rounded border py-0.5 text-xs bg-hover-app border-app"
-              style={autoLayout.mode === 'VERTICAL' ? { backgroundColor: 'var(--bg-active)' } : undefined}
+              style={
+                autoLayout.mode === 'VERTICAL' ? { backgroundColor: 'var(--bg-active)' } : undefined
+              }
               onClick={() => commit({ mode: 'VERTICAL' })}
             >
               Vertical

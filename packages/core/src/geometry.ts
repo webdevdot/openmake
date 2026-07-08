@@ -93,6 +93,57 @@ export function getWorldBounds(doc: OpenDoc, id: string): Bounds {
 
 const SELF_HITTABLE_CONTAINERS = new Set(['FRAME', 'COMPONENT', 'COMPONENT_SET', 'INSTANCE']);
 
+/** Regular polygon inscribed in a `width`×`height` box, point-up, clockwise. Shared by hit-testing and the renderer's path builder. */
+export function regularPolygonPoints(width: number, height: number, count: number): number[] {
+  const cx = width / 2;
+  const cy = height / 2;
+  const rx = width / 2;
+  const ry = height / 2;
+  const points: number[] = [];
+  for (let i = 0; i < count; i++) {
+    // Start at the top (-90deg) and go clockwise.
+    const angle = -Math.PI / 2 + (i * 2 * Math.PI) / count;
+    points.push(cx + rx * Math.cos(angle), cy + ry * Math.sin(angle));
+  }
+  return points;
+}
+
+/** Star with alternating outer/inner vertices inscribed in a `width`×`height` box. Shared by hit-testing and the renderer's path builder. */
+export function starPoints(
+  width: number,
+  height: number,
+  count: number,
+  innerRadius: number,
+): number[] {
+  const cx = width / 2;
+  const cy = height / 2;
+  const rx = width / 2;
+  const ry = height / 2;
+  const points: number[] = [];
+  const total = count * 2;
+  for (let i = 0; i < total; i++) {
+    const angle = -Math.PI / 2 + (i * Math.PI) / count;
+    const scale = i % 2 === 0 ? 1 : innerRadius;
+    points.push(cx + rx * scale * Math.cos(angle), cy + ry * scale * Math.sin(angle));
+  }
+  return points;
+}
+
+/** Even-odd point-in-polygon test. `points` is a flat [x0,y0,x1,y1,...] array. */
+function pointInPolygon(points: number[], x: number, y: number): boolean {
+  let inside = false;
+  const n = points.length / 2;
+  for (let i = 0, j = n - 1; i < n; j = i++) {
+    const xi = points[i * 2]!;
+    const yi = points[i * 2 + 1]!;
+    const xj = points[j * 2]!;
+    const yj = points[j * 2 + 1]!;
+    const intersects = yi > y !== yj > y && x < ((xj - xi) * (y - yi)) / (yj - yi) + xi;
+    if (intersects) inside = !inside;
+  }
+  return inside;
+}
+
 function hitsOwnGeometry(node: SceneNode, local: Vec2): boolean {
   if (local.x < 0 || local.y < 0 || local.x > node.width || local.y > node.height) return false;
   if (node.type === 'ELLIPSE') {
@@ -102,6 +153,20 @@ function hitsOwnGeometry(node: SceneNode, local: Vec2): boolean {
     const dx = (local.x - rx) / rx;
     const dy = (local.y - ry) / ry;
     return dx * dx + dy * dy <= 1;
+  }
+  if (node.type === 'POLYGON') {
+    return pointInPolygon(
+      regularPolygonPoints(node.width, node.height, node.pointCount),
+      local.x,
+      local.y,
+    );
+  }
+  if (node.type === 'STAR') {
+    return pointInPolygon(
+      starPoints(node.width, node.height, node.pointCount, node.innerRadius),
+      local.x,
+      local.y,
+    );
   }
   return true;
 }
@@ -120,7 +185,8 @@ export function hitTest(doc: OpenDoc, pageId: string, point: Vec2): string | nul
     if (!isContainer) return hitsOwnGeometry(node, local) ? id : null;
 
     const clips = (node as { clipsContent?: boolean }).clipsContent ?? false;
-    const inBounds = local.x >= 0 && local.y >= 0 && local.x <= node.width && local.y <= node.height;
+    const inBounds =
+      local.x >= 0 && local.y >= 0 && local.x <= node.width && local.y <= node.height;
     if (clips && !inBounds) return null;
 
     const children = doc.getChildrenIds(id);

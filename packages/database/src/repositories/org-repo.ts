@@ -1,4 +1,9 @@
-import type { OrgMember, OrgRole, Organization, PrismaClient } from '../../generated/client/client.js';
+import type {
+  OrgMember,
+  OrgRole,
+  Organization,
+  PrismaClient,
+} from '../../generated/client/client.js';
 
 export interface CreateOrgInput {
   name: string;

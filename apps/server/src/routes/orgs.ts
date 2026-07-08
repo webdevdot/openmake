@@ -168,7 +168,11 @@ export async function orgRoutes(app: FastifyInstance): Promise<void> {
       const { userId } = parseOrThrow(MemberParamsSchema, request.params);
       const isSelf = userId === request.user!.id;
       if (!isSelf) {
-        const hasAdmin = await app.db.orgs.hasAtLeastRole(request.orgId!, request.user!.id, 'ADMIN');
+        const hasAdmin = await app.db.orgs.hasAtLeastRole(
+          request.orgId!,
+          request.user!.id,
+          'ADMIN',
+        );
         if (!hasAdmin) {
           throw new HttpError(403, 'FORBIDDEN', 'Insufficient role for this action');
         }

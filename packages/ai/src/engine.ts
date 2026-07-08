@@ -68,9 +68,10 @@ export class AiEngine {
       userRequest: input.userRequest,
     });
 
-    const fullSystem = restSkills.length > 0
-      ? [system, ...restSkills.map((skill) => skill.systemPrompt)].join('\n\n')
-      : system;
+    const fullSystem =
+      restSkills.length > 0
+        ? [system, ...restSkills.map((skill) => skill.systemPrompt)].join('\n\n')
+        : system;
 
     const port = this.resolvePort(agent.model);
     return port.generateText({

@@ -20,7 +20,12 @@ function toCamelCss(prop: string): string {
   return prop.replace(/-([a-z])/g, (_, c: string) => c.toUpperCase());
 }
 
-function renderNode(tree: ResolvedTree, node: SceneNode, indent: string, insideAutoLayout: boolean): string {
+function renderNode(
+  tree: ResolvedTree,
+  node: SceneNode,
+  indent: string,
+  insideAutoLayout: boolean,
+): string {
   const pad = indent;
 
   if (node.type === 'TEXT') {
@@ -67,7 +72,10 @@ function renderNode(tree: ResolvedTree, node: SceneNode, indent: string, insideA
     const childLines = children.map((child) => {
       if (!autoLayout && !('x' in node)) return renderNode(tree, child, pad + '  ', false);
       if (autoLayout) return renderNode(tree, child, pad + '  ', true);
-      const pos = 'x' in child && 'y' in child ? computeAbsolutePosition(child.x, child.y, child.width, child.height) : undefined;
+      const pos =
+        'x' in child && 'y' in child
+          ? computeAbsolutePosition(child.x, child.y, child.width, child.height)
+          : undefined;
       const inner = renderNode(tree, child, pad + '    ', false);
       if (!pos) return inner;
       // Wrap absolutely-positioned children so their own render stays position-agnostic.

@@ -64,7 +64,9 @@ class AiSdkModelPort implements ModelPort {
     return { text };
   }
 
-  async generateObject<T>(opts: GenerateOptions & { schema: z.ZodType<T> }): Promise<{ object: T }> {
+  async generateObject<T>(
+    opts: GenerateOptions & { schema: z.ZodType<T> },
+  ): Promise<{ object: T }> {
     const { object } = await generateObject({
       model: this.languageModel,
       system: opts.system,

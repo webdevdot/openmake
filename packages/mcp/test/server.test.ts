@@ -76,7 +76,10 @@ describe('createOpenmakeMcpServer', () => {
       name: 'read_node',
       arguments: { fileId: 'file1', nodeId: frameId, depth: 1 },
     });
-    const data = parseResult(result) as { node: { name: string }; children: Array<{ node: { name: string } }> };
+    const data = parseResult(result) as {
+      node: { name: string };
+      children: Array<{ node: { name: string } }>;
+    };
     expect(data.node.name).toBe('Frame');
     expect(data.children).toHaveLength(1);
     expect(data.children[0]!.node.name).toBe('Label');
@@ -139,7 +142,10 @@ describe('createOpenmakeMcpServer', () => {
     const server = createOpenmakeMcpServer({ documents, intelligence });
     const client = await connectedClient(server);
 
-    const result = await client.callTool({ name: 'delete_node', arguments: { fileId: 'file1', nodeId } });
+    const result = await client.callTool({
+      name: 'delete_node',
+      arguments: { fileId: 'file1', nodeId },
+    });
     expect(result.isError).toBeFalsy();
     expect(doc.getNode(nodeId)).toBeUndefined();
 
@@ -192,7 +198,12 @@ describe('createOpenmakeMcpServer', () => {
 
     const attachResult = await client.callTool({
       name: 'attach_intelligence',
-      arguments: { fileId: 'file1', nodeId: frameId, skillId: 'skill-1', prompts: { tone: 'friendly' } },
+      arguments: {
+        fileId: 'file1',
+        nodeId: frameId,
+        skillId: 'skill-1',
+        prompts: { tone: 'friendly' },
+      },
     });
     expect(attachResult.isError).toBeFalsy();
 
@@ -209,7 +220,14 @@ describe('createOpenmakeMcpServer', () => {
     expect(bundle.designContext.document.id).toBe('file1');
     expect(bundle.designContext.selection).toHaveLength(1);
     expect(bundle.component?.id).toBe(componentId);
-    expect(bundle.attachments).toEqual([{ skillId: 'skill-1', agentId: undefined, workflowId: undefined, prompts: { tone: 'friendly' } }]);
+    expect(bundle.attachments).toEqual([
+      {
+        skillId: 'skill-1',
+        agentId: undefined,
+        workflowId: undefined,
+        prompts: { tone: 'friendly' },
+      },
+    ]);
     expect(bundle.generatedCode).toEqual([]);
   });
 
@@ -236,13 +254,19 @@ describe('createOpenmakeMcpServer', () => {
     const server = createOpenmakeMcpServer({ documents, intelligence });
     const client = await connectedClient(server);
 
-    await client.callTool({ name: 'create_component', arguments: { fileId: 'file1', nodeId: frameId } });
+    await client.callTool({
+      name: 'create_component',
+      arguments: { fileId: 'file1', nodeId: frameId },
+    });
 
     const result = await client.callTool({
       name: 'generate_code',
       arguments: { fileId: 'file1', nodeId: frameId, framework: 'REACT' },
     });
-    const data = parseResult(result) as { files: Array<{ path: string; content: string }>; version: number };
+    const data = parseResult(result) as {
+      files: Array<{ path: string; content: string }>;
+      version: number;
+    };
     expect(data.files.length).toBeGreaterThan(0);
     expect(data.files[0]!.content).toBeTruthy();
     expect(data.version).toBe(1);
@@ -251,7 +275,9 @@ describe('createOpenmakeMcpServer', () => {
       name: 'get_generated_code',
       arguments: { fileId: 'file1', nodeId: frameId },
     });
-    const codeData = parseResult(codeResult) as { code: Array<{ framework: string; version: number }> };
+    const codeData = parseResult(codeResult) as {
+      code: Array<{ framework: string; version: number }>;
+    };
     expect(codeData.code).toEqual([{ framework: 'REACT', code: expect.any(String), version: 1 }]);
   });
 
@@ -265,7 +291,12 @@ describe('createOpenmakeMcpServer', () => {
 
     const result = await client.callTool({
       name: 'save_generated_code',
-      arguments: { fileId: 'file1', nodeId, framework: 'REACT', code: 'export default function Card() {}' },
+      arguments: {
+        fileId: 'file1',
+        nodeId,
+        framework: 'REACT',
+        code: 'export default function Card() {}',
+      },
     });
     const data = parseResult(result) as { componentId: string; version: number };
     expect(data.version).toBe(1);
@@ -281,7 +312,12 @@ describe('createOpenmakeMcpServer', () => {
   it('list_skills, list_agents, list_workflows delegate to the intelligence store', async () => {
     intelligence.seedSkills([{ id: 'skill-1', name: 'Skill One', systemPrompt: 'Be nice' }]);
     intelligence.seedAgents([
-      { id: 'agent-1', name: 'Agent One', model: { provider: 'ANTHROPIC', model: 'claude' }, skills: [] },
+      {
+        id: 'agent-1',
+        name: 'Agent One',
+        model: { provider: 'ANTHROPIC', model: 'claude' },
+        skills: [],
+      },
     ]);
     intelligence.seedWorkflows([{ id: 'wf-1', name: 'Workflow One', steps: [] }]);
 
@@ -298,7 +334,9 @@ describe('createOpenmakeMcpServer', () => {
     };
     expect(agents.agents).toEqual([expect.objectContaining({ id: 'agent-1' })]);
 
-    const workflows = parseResult(await client.callTool({ name: 'list_workflows', arguments: {} })) as {
+    const workflows = parseResult(
+      await client.callTool({ name: 'list_workflows', arguments: {} }),
+    ) as {
       workflows: Array<{ id: string }>;
     };
     expect(workflows.workflows).toEqual([expect.objectContaining({ id: 'wf-1' })]);
@@ -350,7 +388,10 @@ describe('createOpenmakeMcpServer', () => {
       arguments: { workflowId: 'wf-1', fileId: 'file1', nodeId, request: 'do something' },
     });
     expect(result.isError).toBeFalsy();
-    const data = parseResult(result) as { steps: Array<{ agentId: string; output: string }>; final: string };
+    const data = parseResult(result) as {
+      steps: Array<{ agentId: string; output: string }>;
+      final: string;
+    };
     expect(data.steps).toHaveLength(1);
     expect(data.steps[0]!.agentId).toBe('agent-1');
     expect(data.final).toBe(data.steps[0]!.output);
@@ -367,7 +408,10 @@ describe('createOpenmakeMcpServer', () => {
 
     await client.callTool({ name: 'create_component', arguments: { fileId: 'file1', nodeId } });
 
-    const result = await client.callTool({ name: 'search_components', arguments: { query: 'button' } });
+    const result = await client.callTool({
+      name: 'search_components',
+      arguments: { query: 'button' },
+    });
     const data = parseResult(result) as { results: Array<{ name: string }> };
     expect(data.results).toEqual([expect.objectContaining({ name: 'PrimaryButton' })]);
   });
@@ -375,12 +419,21 @@ describe('createOpenmakeMcpServer', () => {
   it('create_instance creates an instance of a component', async () => {
     const doc = documents.seed('file1');
     const pageId = doc.getPages()[0]!;
-    const frameId = doc.createNode({ type: 'FRAME', parentId: pageId, name: 'Button', width: 80, height: 32 });
+    const frameId = doc.createNode({
+      type: 'FRAME',
+      parentId: pageId,
+      name: 'Button',
+      width: 80,
+      height: 32,
+    });
 
     const server = createOpenmakeMcpServer({ documents, intelligence });
     const client = await connectedClient(server);
 
-    await client.callTool({ name: 'create_component', arguments: { fileId: 'file1', nodeId: frameId } });
+    await client.callTool({
+      name: 'create_component',
+      arguments: { fileId: 'file1', nodeId: frameId },
+    });
 
     const result = await client.callTool({
       name: 'create_instance',

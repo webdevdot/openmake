@@ -32,7 +32,9 @@ export interface Config {
 export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
   const parsed = EnvSchema.safeParse(env);
   if (!parsed.success) {
-    const message = parsed.error.issues.map((issue) => `${issue.path.join('.')}: ${issue.message}`).join('; ');
+    const message = parsed.error.issues
+      .map((issue) => `${issue.path.join('.')}: ${issue.message}`)
+      .join('; ');
     throw new Error(`Invalid environment configuration: ${message}`);
   }
   const data = parsed.data;

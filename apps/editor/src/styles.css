@@ -37,24 +37,31 @@
   --color-accent: #0c8ce9;
   --color-accent-hover: #1c98f2;
   --color-accent-muted: #0c8ce933;
+  /* Darker accent for CTA surfaces: 5.33:1 contrast vs white text (AA). */
+  --color-accent-cta: #0a6cc2;
 
   --spacing-panel-left: 240px;
   --spacing-panel-right: 260px;
-  --spacing-toolbar: 40px;
+  --spacing-toolbar: 48px;
+  --spacing-rail: 56px;
 
   --text-ui: 13px;
 }
 
 :root {
   color-scheme: dark;
+  accent-color: var(--color-accent);
   --bg-canvas: var(--color-zinc-900);
   --bg-panel: var(--color-zinc-950);
   --bg-toolbar: var(--color-zinc-950);
+  --bg-rail: var(--color-zinc-950);
   --border-default: var(--color-zinc-800);
   --text-primary: var(--color-zinc-100);
   --text-secondary: var(--color-zinc-400);
   --bg-hover: var(--color-zinc-800);
   --bg-active: var(--color-zinc-700);
+  --bg-floating: var(--color-zinc-850);
+  --rail-fg: var(--color-zinc-400);
 }
 
 :root[data-theme='light'] {
@@ -62,11 +69,14 @@
   --bg-canvas: var(--color-zinc-100);
   --bg-panel: #ffffff;
   --bg-toolbar: #ffffff;
+  --bg-rail: var(--color-zinc-50);
   --border-default: var(--color-zinc-200);
   --text-primary: var(--color-zinc-900);
   --text-secondary: var(--color-zinc-500);
   --bg-hover: var(--color-zinc-100);
   --bg-active: var(--color-zinc-200);
+  --bg-floating: var(--color-zinc-900);
+  --rail-fg: var(--color-zinc-500);
 }
 
 @media (prefers-color-scheme: light) {
@@ -75,11 +85,14 @@
     --bg-canvas: var(--color-zinc-100);
     --bg-panel: #ffffff;
     --bg-toolbar: #ffffff;
+    --bg-rail: var(--color-zinc-50);
     --border-default: var(--color-zinc-200);
     --text-primary: var(--color-zinc-900);
     --text-secondary: var(--color-zinc-500);
     --bg-hover: var(--color-zinc-100);
     --bg-active: var(--color-zinc-200);
+    --bg-floating: var(--color-zinc-900);
+    --rail-fg: var(--color-zinc-500);
   }
 }
 
@@ -102,13 +115,27 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
-button,
-input,
-select,
-textarea {
-  font-family: inherit;
-  font-size: inherit;
-  color: inherit;
+/* Form-control reset lives in @layer base so Tailwind utilities (which live in
+   @layer utilities) still win the cascade — un-layered rules would beat them. */
+@layer base {
+  button,
+  input,
+  select,
+  textarea {
+    font-family: inherit;
+    font-size: inherit;
+    color: inherit;
+  }
+
+  button:disabled {
+    opacity: 0.5;
+    cursor: default;
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--color-accent);
+    outline-offset: 1px;
+  }
 }
 
 /* Utility classes bridging the CSS variables into Tailwind-esque names used across components. */
@@ -118,14 +145,26 @@ textarea {
 .bg-toolbar {
   background-color: var(--bg-toolbar);
 }
+.bg-rail {
+  background-color: var(--bg-rail);
+}
+.bg-floating-app {
+  background-color: var(--bg-floating);
+}
+.text-rail-fg {
+  color: var(--rail-fg);
+}
 .bg-canvas-app {
   background-color: var(--bg-canvas);
 }
-.bg-hover-app:hover {
+.bg-hover-app:hover:not(:disabled) {
   background-color: var(--bg-hover);
 }
 .bg-active-app {
   background-color: var(--bg-active);
+}
+.bg-accent-cta {
+  background-color: var(--color-accent-cta);
 }
 .border-app {
   border-color: var(--border-default);

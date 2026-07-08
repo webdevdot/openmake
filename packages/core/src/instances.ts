@@ -19,7 +19,9 @@ export function resolveInstance(doc: OpenDoc, instanceId: string): ResolvedInsta
   }
   const component = doc.getNode(instance.componentId);
   if (!component || (component.type !== 'COMPONENT' && component.type !== 'COMPONENT_SET')) {
-    throw new Error(`Instance "${instanceId}" references missing component "${instance.componentId}"`);
+    throw new Error(
+      `Instance "${instanceId}" references missing component "${instance.componentId}"`,
+    );
   }
 
   const nodes: Record<string, SceneNode> = {};

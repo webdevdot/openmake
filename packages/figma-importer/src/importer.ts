@@ -67,7 +67,12 @@ function toFills(paints: FigmaPaint[] | undefined): Paint[] {
   const fills: Paint[] = [];
   for (const p of paints) {
     if (p.type === 'SOLID' && p.color) {
-      fills.push({ type: 'SOLID', color: toColor(p.color), opacity: 1, visible: p.visible ?? true });
+      fills.push({
+        type: 'SOLID',
+        color: toColor(p.color),
+        opacity: 1,
+        visible: p.visible ?? true,
+      });
     }
   }
   return fills;

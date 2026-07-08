@@ -22,7 +22,12 @@ describe('OpenDoc.create', () => {
     const { doc, pageId } = newDocWithPage();
     const id = doc.createNode({ type: 'RECTANGLE', parentId: pageId });
     const node = doc.getNode(id);
-    expect(node).toMatchObject({ type: 'RECTANGLE', visible: true, opacity: 1, blendMode: 'NORMAL' });
+    expect(node).toMatchObject({
+      type: 'RECTANGLE',
+      visible: true,
+      opacity: 1,
+      blendMode: 'NORMAL',
+    });
   });
 });
 
@@ -172,14 +177,27 @@ describe('geometry', () => {
   it('computes world bounds through nested offsets', () => {
     const { doc, pageId } = newDocWithPage();
     const frame = doc.createNode({ type: 'FRAME', parentId: pageId, x: 100, y: 50 });
-    const rect = doc.createNode({ type: 'RECTANGLE', parentId: frame, x: 10, y: 20, width: 30, height: 40 });
+    const rect = doc.createNode({
+      type: 'RECTANGLE',
+      parentId: frame,
+      x: 10,
+      y: 20,
+      width: 30,
+      height: 40,
+    });
     expect(getWorldBounds(doc, rect)).toEqual({ x: 110, y: 70, width: 30, height: 40 });
   });
 
   it('accounts for rotation in world bounds', () => {
     const { doc, pageId } = newDocWithPage();
     const rect = doc.createNode({
-      type: 'RECTANGLE', parentId: pageId, x: 0, y: 0, width: 100, height: 50, rotation: 90,
+      type: 'RECTANGLE',
+      parentId: pageId,
+      x: 0,
+      y: 0,
+      width: 100,
+      height: 50,
+      rotation: 90,
     });
     const b = getWorldBounds(doc, rect);
     // Rotated 90° about its center: AABB becomes 50x100 around the same center.
@@ -191,8 +209,22 @@ describe('geometry', () => {
 
   it('hitTest returns the topmost node at a point', () => {
     const { doc, pageId } = newDocWithPage();
-    const bottom = doc.createNode({ type: 'RECTANGLE', parentId: pageId, x: 0, y: 0, width: 100, height: 100 });
-    const top = doc.createNode({ type: 'RECTANGLE', parentId: pageId, x: 50, y: 50, width: 100, height: 100 });
+    const bottom = doc.createNode({
+      type: 'RECTANGLE',
+      parentId: pageId,
+      x: 0,
+      y: 0,
+      width: 100,
+      height: 100,
+    });
+    const top = doc.createNode({
+      type: 'RECTANGLE',
+      parentId: pageId,
+      x: 50,
+      y: 50,
+      width: 100,
+      height: 100,
+    });
     expect(hitTest(doc, pageId, { x: 75, y: 75 })).toBe(top);
     expect(hitTest(doc, pageId, { x: 10, y: 10 })).toBe(bottom);
     expect(hitTest(doc, pageId, { x: 500, y: 500 })).toBeNull();
@@ -200,8 +232,23 @@ describe('geometry', () => {
 
   it('hitTest skips invisible nodes and respects ellipse shape', () => {
     const { doc, pageId } = newDocWithPage();
-    const ellipse = doc.createNode({ type: 'ELLIPSE', parentId: pageId, x: 0, y: 0, width: 100, height: 100 });
-    doc.createNode({ type: 'RECTANGLE', parentId: pageId, x: 0, y: 0, width: 10, height: 10, visible: false });
+    const ellipse = doc.createNode({
+      type: 'ELLIPSE',
+      parentId: pageId,
+      x: 0,
+      y: 0,
+      width: 100,
+      height: 100,
+    });
+    doc.createNode({
+      type: 'RECTANGLE',
+      parentId: pageId,
+      x: 0,
+      y: 0,
+      width: 10,
+      height: 10,
+      visible: false,
+    });
     // Corner of the ellipse's bounding box is outside the ellipse itself.
     expect(hitTest(doc, pageId, { x: 2, y: 2 })).toBeNull();
     expect(hitTest(doc, pageId, { x: 50, y: 50 })).toBe(ellipse);
@@ -209,8 +256,22 @@ describe('geometry', () => {
 
   it('hitTest descends into frames and returns children above the frame', () => {
     const { doc, pageId } = newDocWithPage();
-    const frame = doc.createNode({ type: 'FRAME', parentId: pageId, x: 0, y: 0, width: 200, height: 200 });
-    const child = doc.createNode({ type: 'RECTANGLE', parentId: frame, x: 10, y: 10, width: 50, height: 50 });
+    const frame = doc.createNode({
+      type: 'FRAME',
+      parentId: pageId,
+      x: 0,
+      y: 0,
+      width: 200,
+      height: 200,
+    });
+    const child = doc.createNode({
+      type: 'RECTANGLE',
+      parentId: frame,
+      x: 10,
+      y: 10,
+      width: 50,
+      height: 50,
+    });
     expect(hitTest(doc, pageId, { x: 30, y: 30 })).toBe(child);
     expect(hitTest(doc, pageId, { x: 150, y: 150 })).toBe(frame);
   });
@@ -236,7 +297,12 @@ describe('components & instances', () => {
     expect(texts).toHaveLength(1);
     expect((texts[0] as { characters: string }).characters).toBe('Save changes');
     // Resolved root carries the instance's placement.
-    expect(resolved.nodes[resolved.rootId]).toMatchObject({ x: 300, y: 10, width: 120, height: 40 });
+    expect(resolved.nodes[resolved.rootId]).toMatchObject({
+      x: 300,
+      y: 10,
+      width: 120,
+      height: 40,
+    });
   });
 });
 

@@ -49,7 +49,11 @@ export function buildRenderScene(doc: OpenDoc, pageId: string): RenderScene {
           const child = resolved.nodes[childId];
           return child?.visible;
         });
-        nodes[resolved.rootId] = { ...rootNode, children: visibleChildren, visible: true } as SceneNode;
+        nodes[resolved.rootId] = {
+          ...rootNode,
+          children: visibleChildren,
+          visible: true,
+        } as SceneNode;
       }
       return resolved.rootId;
     }

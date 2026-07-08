@@ -67,14 +67,12 @@ describe('parseFigmaRestDocument', () => {
     expect(types).not.toContain('VECTOR');
 
     const text = Object.values(result.document.nodes).find((n) => n.type === 'TEXT') as
-      | { characters: string; textStyle: { fontSize: number } }
-      | undefined;
+      { characters: string; textStyle: { fontSize: number } } | undefined;
     expect(text?.characters).toBe('Hello from Figma');
     expect(text?.textStyle.fontSize).toBe(18);
 
     const rect = Object.values(result.document.nodes).find((n) => n.type === 'RECTANGLE') as
-      | { x: number; y: number }
-      | undefined;
+      { x: number; y: number } | undefined;
     // absoluteBoundingBox is relative to the parent frame's box (20,20 rel to 0,0 = 20,20).
     expect(rect?.x).toBe(20);
     expect(rect?.y).toBe(20);

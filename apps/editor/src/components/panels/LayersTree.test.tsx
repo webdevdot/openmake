@@ -11,7 +11,15 @@ afterEach(() => {
 function setup() {
   const doc = OpenDoc.create();
   const pageId = doc.getPages()[0]!;
-  const rectId = doc.createNode({ type: 'RECTANGLE', parentId: pageId, name: 'My Rect', x: 0, y: 0, width: 10, height: 10 });
+  const rectId = doc.createNode({
+    type: 'RECTANGLE',
+    parentId: pageId,
+    name: 'My Rect',
+    x: 0,
+    y: 0,
+    width: 10,
+    height: 10,
+  });
   return { doc, pageId, rectId };
 }
 
@@ -39,5 +47,22 @@ describe('LayersTree', () => {
     fireEvent.click(screen.getByTestId(`layer-row-${rectId}`));
 
     expect(useSelectionStore.getState().selectedIds).toEqual([rectId]);
+  });
+
+  it('shows an empty state when the page has no layers', () => {
+    const doc = OpenDoc.create();
+    const pageId = doc.getPages()[0]!;
+    render(<LayersTree doc={doc} pageId={pageId} />);
+
+    expect(screen.getByTestId('layers-empty').textContent).toBe(
+      'No layers yet — draw with R, O, L or T',
+    );
+  });
+
+  it('hides the empty state once the page has layers', () => {
+    const { doc, pageId } = setup();
+    render(<LayersTree doc={doc} pageId={pageId} />);
+
+    expect(screen.queryByTestId('layers-empty')).toBeNull();
   });
 });

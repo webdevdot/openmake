@@ -1,4 +1,11 @@
-import type { CanvasKit, Canvas as SkCanvas, Paint as SkPaint, Path as SkPath, Surface, TextAlign as SkTextAlign } from 'canvaskit-wasm';
+import type {
+  CanvasKit,
+  Canvas as SkCanvas,
+  Paint as SkPaint,
+  Path as SkPath,
+  Surface,
+  TextAlign as SkTextAlign,
+} from 'canvaskit-wasm';
 import type { SceneNode } from '@openmake/shared';
 import { nodeLocalMatrix, type Mat2x3 } from '@openmake/core';
 import { loadCanvasKit } from './canvaskit.js';
@@ -58,7 +65,12 @@ class CanvasKitRenderer implements TestableRenderer {
     canvas.save();
     canvas.clear(
       scene.backgroundColor
-        ? this.ck.Color4f(scene.backgroundColor.r, scene.backgroundColor.g, scene.backgroundColor.b, scene.backgroundColor.a)
+        ? this.ck.Color4f(
+            scene.backgroundColor.r,
+            scene.backgroundColor.g,
+            scene.backgroundColor.b,
+            scene.backgroundColor.a,
+          )
         : this.ck.Color4f(1, 1, 1, 1),
     );
     canvas.scale(this.dpr, this.dpr);
@@ -93,7 +105,11 @@ class CanvasKitRenderer implements TestableRenderer {
     const isContainer = 'children' in node;
     const clips = isContainer && (node as { clipsContent?: boolean }).clipsContent;
     if (clips) {
-      const rrect = ck.RRectXY(ck.LTRBRect(0, 0, node.width, node.height), containerCornerRadius(node), containerCornerRadius(node));
+      const rrect = ck.RRectXY(
+        ck.LTRBRect(0, 0, node.width, node.height),
+        containerCornerRadius(node),
+        containerCornerRadius(node),
+      );
       canvas.clipRRect(rrect, ck.ClipOp.Intersect, true);
     }
 
@@ -126,7 +142,11 @@ class CanvasKitRenderer implements TestableRenderer {
       case 'COMPONENT':
       case 'INSTANCE': {
         const cornerRadius = 'cornerRadius' in node ? (node.cornerRadius ?? 0) : 0;
-        const rrect = ck.RRectXY(ck.LTRBRect(0, 0, node.width, node.height), cornerRadius, cornerRadius);
+        const rrect = ck.RRectXY(
+          ck.LTRBRect(0, 0, node.width, node.height),
+          cornerRadius,
+          cornerRadius,
+        );
         for (const paint of node.fills ?? []) {
           const skPaint = paintToSkPaint(ck, paint, node.width, node.height, getImageBytes);
           if (!skPaint) continue;
@@ -223,11 +243,19 @@ class CanvasKitRenderer implements TestableRenderer {
 
     const fontProvider = getFontProvider(ck);
     const fill = node.fills?.find((p) => p.visible && p.type === 'SOLID');
-    const color = fill && fill.type === 'SOLID' ? ck.Color4f(fill.color.r, fill.color.g, fill.color.b, fill.color.a * fill.opacity) : ck.Color4f(0, 0, 0, 1);
+    const color =
+      fill && fill.type === 'SOLID'
+        ? ck.Color4f(fill.color.r, fill.color.g, fill.color.b, fill.color.a * fill.opacity)
+        : ck.Color4f(0, 0, 0, 1);
 
     const lineHeight = node.textStyle.lineHeight === 'AUTO' ? 1.2 : node.textStyle.lineHeight;
 
-    const paragraphStyle = {
+    // Must go through the ParagraphStyle constructor, not a bare object
+    // literal: it fills in the optional struct fields (disableHinting,
+    // strutStyle, …) that CanvasKit's emscripten toWireType marshaller
+    // requires — a plain literal throws `Missing field: "disableHinting"`
+    // and takes down the whole render loop.
+    const paragraphStyle = new ck.ParagraphStyle({
       textAlign: textAlignToSk(ck, node.textStyle.textAlign),
       textStyle: {
         color,
@@ -236,7 +264,7 @@ class CanvasKitRenderer implements TestableRenderer {
         heightMultiplier: lineHeight,
         letterSpacing: node.textStyle.letterSpacing,
       },
-    };
+    });
 
     const builder = ck.ParagraphBuilder.MakeFromFontProvider(paragraphStyle, fontProvider);
     builder.addText(node.characters);
@@ -266,12 +294,13 @@ class CanvasKitRenderer implements TestableRenderer {
     }
   }
 
-  async exportPNG(scene: RenderScene, opts: { nodeId?: string; scale?: number } = {}): Promise<Uint8Array> {
+  async exportPNG(
+    scene: RenderScene,
+    opts: { nodeId?: string; scale?: number } = {},
+  ): Promise<Uint8Array> {
     const ck = this.ck;
     const scale = opts.scale ?? 1;
-    const bounds = opts.nodeId
-      ? nodeExportBounds(scene, opts.nodeId)
-      : sceneExportBounds(scene);
+    const bounds = opts.nodeId ? nodeExportBounds(scene, opts.nodeId) : sceneExportBounds(scene);
 
     const width = Math.max(1, Math.round(bounds.width * scale));
     const height = Math.max(1, Math.round(bounds.height * scale));
@@ -283,7 +312,12 @@ class CanvasKitRenderer implements TestableRenderer {
     // export is a transparent crop of just that node's own drawing.
     canvas.clear(
       !opts.nodeId && scene.backgroundColor
-        ? ck.Color4f(scene.backgroundColor.r, scene.backgroundColor.g, scene.backgroundColor.b, scene.backgroundColor.a)
+        ? ck.Color4f(
+            scene.backgroundColor.r,
+            scene.backgroundColor.g,
+            scene.backgroundColor.b,
+            scene.backgroundColor.a,
+          )
         : ck.Color4f(0, 0, 0, 0),
     );
     canvas.save();

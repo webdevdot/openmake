@@ -79,5 +79,7 @@ const TABLES = [
 
 /** Truncates every application table, resetting identities, cascading FKs. */
 export async function truncateAll(client: Client): Promise<void> {
-  await client.query(`TRUNCATE TABLE ${TABLES.map((t) => `"${t}"`).join(', ')} RESTART IDENTITY CASCADE`);
+  await client.query(
+    `TRUNCATE TABLE ${TABLES.map((t) => `"${t}"`).join(', ')} RESTART IDENTITY CASCADE`,
+  );
 }

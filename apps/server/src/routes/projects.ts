@@ -5,7 +5,10 @@ import { requireOrgRole, resolveOrgIdFromProject } from '../plugins/auth.js';
 
 const OrgIdParamsSchema = z.object({ orgId: z.string().min(1) });
 const ProjectIdParamsSchema = z.object({ projectId: z.string().min(1) });
-const CreateProjectSchema = z.object({ name: z.string().min(1), description: z.string().optional() });
+const CreateProjectSchema = z.object({
+  name: z.string().min(1),
+  description: z.string().optional(),
+});
 const UpdateProjectSchema = z.object({
   name: z.string().min(1).optional(),
   description: z.string().nullable().optional(),

@@ -96,7 +96,7 @@ describe('auth', () => {
     expect(reuseRes.statusCode).toBe(401);
   });
 
-  it('reusing an already-revoked refresh token revokes all of that user\'s tokens', async () => {
+  it("reusing an already-revoked refresh token revokes all of that user's tokens", async () => {
     const registerRes = await ctx.app.inject({
       method: 'POST',
       url: '/api/v1/auth/register',

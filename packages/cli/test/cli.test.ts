@@ -78,14 +78,20 @@ describe('openmake CLI', () => {
     await run(['new', 'demo'], captureIo());
     const file = path.join(dir, 'demo.omk.json');
     const raw = await readFile(file, 'utf8');
-    const json = JSON.parse(raw) as { rootId: string; nodes: Record<string, { type: string; children?: string[] }> };
+    const json = JSON.parse(raw) as {
+      rootId: string;
+      nodes: Record<string, { type: string; children?: string[] }>;
+    };
     const pageId = json.nodes[json.rootId]?.children?.[0];
     const frameId = pageId ? json.nodes[pageId]?.children?.[0] : undefined;
     expect(frameId).toBeTruthy();
 
     const outDir = path.join(dir, 'out');
     const io = captureIo();
-    const code = await run(['codegen', file, frameId!, '--framework', 'REACT', '--out', outDir], io);
+    const code = await run(
+      ['codegen', file, frameId!, '--framework', 'REACT', '--out', outDir],
+      io,
+    );
     expect(code).toBe(0);
 
     const files = await import('node:fs/promises').then((fs) => fs.readdir(outDir));

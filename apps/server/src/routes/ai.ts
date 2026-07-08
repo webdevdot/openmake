@@ -90,7 +90,9 @@ export async function aiRoutes(app: FastifyInstance): Promise<void> {
             baseUrl: providerRow.baseUrl ?? undefined,
           },
           skills: agent.skills.map(toSkillSpec),
-          config: (agent.config as { temperature?: number; maxOutputTokens?: number } | null) ?? undefined,
+          config:
+            (agent.config as { temperature?: number; maxOutputTokens?: number } | null) ??
+            undefined,
         };
 
         steps.push({ agent: agentSpec, instructions: step.instructions });

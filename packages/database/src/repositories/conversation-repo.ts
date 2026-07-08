@@ -1,5 +1,10 @@
 import type { Prisma } from '../../generated/client/client.js';
-import type { AiConversation, AiMessage, MessageRole, PrismaClient } from '../../generated/client/client.js';
+import type {
+  AiConversation,
+  AiMessage,
+  MessageRole,
+  PrismaClient,
+} from '../../generated/client/client.js';
 
 export interface CreateConversationInput {
   orgId: string;

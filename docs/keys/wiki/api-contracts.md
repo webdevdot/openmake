@@ -9,27 +9,28 @@ register+login, 200/min global. Non-member resource access → 404.
 
 ## REST
 
-| Method+Path | Notes |
-|---|---|
-| POST /auth/register {email,password≥10,name} | 201 → {user, accessToken, refreshToken} + cookie; creates personal org+project |
-| POST /auth/login {email,password} | same shape |
-| POST /auth/refresh | cookie or body → rotated pair; reuse of revoked → 401 + revoke-all |
-| POST /auth/logout | revokes token, clears cookie → {ok} |
-| GET /auth/me | {user} |
-| GET /orgs · POST /orgs · GET/PATCH/DELETE /orgs/:id | PATCH admin+, DELETE owner |
-| GET/POST /orgs/:id/members · PATCH/DELETE /orgs/:id/members/:userId | admin+; cannot demote last owner |
-| GET/POST /orgs/:id/projects · GET/PATCH/DELETE /projects/:id | write = editor+ |
-| GET/POST /projects/:id/files · GET/PATCH/DELETE /files/:id | {file(s)}; soft delete; write = editor+ |
-| GET /files/:id/snapshot | application/octet-stream — full merged Yjs state |
-| GET/POST/PATCH/DELETE skills·agents·workflows under /orgs/:id | builtIn skills global + immutable |
-| PUT/GET/DELETE /orgs/:id/providers/:provider | PUT {apiKey,baseUrl?} admin+; GET → {provider,hasKey,baseUrl} — never key material |
-| GET /files/:id/components · GET /files/:id/components/:nodeId/context | context = DesignContext + attachments + code versions |
-| POST /files/:id/components/:nodeId/attachments | ≥1 of skillId/agentId/workflowId |
-| POST /ai/workflows/:id/run {fileId,nodeId,request,framework?} | editor+; decrypts org provider key; persists conversation |
-| POST /orgs/:id/api-keys {name,scopes[]} | admin+; plaintext om_ key returned ONCE |
-| GET/DELETE /orgs/:id/api-keys(/:keyId) | masked list; revoke |
-| POST/GET/PATCH/DELETE /files/:id/comments(/:commentId) | member; PATCH resolves |
-| GET /healthz | {status:'ok', db:'up'} |
+| Method+Path                                                           | Notes                                                                                                                                                                                                                                                                    |
+| --------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| POST /auth/register {email,password≥10,name}                          | 201 → {user, accessToken, refreshToken} + cookie; creates personal org+project                                                                                                                                                                                           |
+| POST /auth/login {email,password}                                     | same shape                                                                                                                                                                                                                                                               |
+| POST /auth/refresh                                                    | cookie or body → rotated pair; reuse of revoked → 401 + revoke-all                                                                                                                                                                                                       |
+| POST /auth/logout                                                     | revokes token, clears cookie → {ok}                                                                                                                                                                                                                                      |
+| GET /auth/me                                                          | {user}                                                                                                                                                                                                                                                                   |
+| GET /orgs · POST /orgs · GET/PATCH/DELETE /orgs/:id                   | PATCH admin+, DELETE owner                                                                                                                                                                                                                                               |
+| GET/POST /orgs/:id/members · PATCH/DELETE /orgs/:id/members/:userId   | admin+; cannot demote last owner                                                                                                                                                                                                                                         |
+| GET/POST /orgs/:id/projects · GET/PATCH/DELETE /projects/:id          | write = editor+                                                                                                                                                                                                                                                          |
+| GET/POST /projects/:id/files · GET/PATCH/DELETE /files/:id            | {file(s)}; soft delete; write = editor+                                                                                                                                                                                                                                  |
+| POST /projects/:id/files/import {name, document}                      | editor+; 10 MiB bodyLimit, 10/min/IP; validates DocumentData (50k-node + combined-entries caps) → seeds Yjs snapshot; 201 {file}; 400 INVALID_DOCUMENT/DOCUMENT_TOO_LARGE. Client parses .fig in-browser (parseFigFile) and posts JSON — server never touches the binary |
+| GET /files/:id/snapshot                                               | application/octet-stream — full merged Yjs state                                                                                                                                                                                                                         |
+| GET/POST/PATCH/DELETE skills·agents·workflows under /orgs/:id         | builtIn skills global + immutable                                                                                                                                                                                                                                        |
+| PUT/GET/DELETE /orgs/:id/providers/:provider                          | PUT {apiKey,baseUrl?} admin+; GET → {provider,hasKey,baseUrl} — never key material                                                                                                                                                                                       |
+| GET /files/:id/components · GET /files/:id/components/:nodeId/context | context = DesignContext + attachments + code versions                                                                                                                                                                                                                    |
+| POST /files/:id/components/:nodeId/attachments                        | ≥1 of skillId/agentId/workflowId                                                                                                                                                                                                                                         |
+| POST /ai/workflows/:id/run {fileId,nodeId,request,framework?}         | editor+; decrypts org provider key; persists conversation                                                                                                                                                                                                                |
+| POST /orgs/:id/api-keys {name,scopes[]}                               | admin+; plaintext om_ key returned ONCE                                                                                                                                                                                                                                  |
+| GET/DELETE /orgs/:id/api-keys(/:keyId)                                | masked list; revoke                                                                                                                                                                                                                                                      |
+| POST/GET/PATCH/DELETE /files/:id/comments(/:commentId)                | member; PATCH resolves                                                                                                                                                                                                                                                   |
+| GET /healthz                                                          | {status:'ok', db:'up'}                                                                                                                                                                                                                                                   |
 
 ## WebSocket /sync/:fileId?token=<accessJWT>
 

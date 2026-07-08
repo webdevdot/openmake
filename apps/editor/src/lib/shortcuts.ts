@@ -25,6 +25,7 @@ const TOOL_KEYS: Record<string, ToolId> = {
   r: 'rectangle',
   o: 'ellipse',
   l: 'line',
+  p: 'pen',
   t: 'text',
   h: 'hand',
 };

@@ -22,12 +22,16 @@ test.describe('full user journey', () => {
     await createFileAndOpenEditor(page, 'Landing page');
     await expect(page.getByTestId('toolbar')).toBeVisible();
     await expect(page.getByTestId('layers-tree')).toBeVisible();
-    await expect(page.getByTestId('inspector-empty')).toBeVisible();
+    // Empty selection on a fresh file shows the page inspector (UI3 chrome),
+    // not the old empty-state placeholder.
+    await expect(page.getByTestId('page-inspector')).toBeVisible();
 
     // -- the canvas actually renders: drawing changes pixels (poll: repaint is async via rAF)
     const before = await canvasShot(page);
     await drawShape(page, 'rectangle', { x: 200, y: 150 }, { x: 420, y: 320 });
-    await expect.poll(async () => (await canvasShot(page)).equals(before), { timeout: 5000 }).toBe(false);
+    await expect
+      .poll(async () => (await canvasShot(page)).equals(before), { timeout: 5000 })
+      .toBe(false);
 
     // -- the node exists in the layers tree and is selected in the inspector
     await expect(page.getByTestId('layers-tree').getByText('Rectangle')).toBeVisible();
@@ -38,7 +42,9 @@ test.describe('full user journey', () => {
     const painted = await canvasShot(page);
     await page.getByTestId('fill-hex-input').first().fill('ff4433');
     await page.getByTestId('fill-hex-input').first().press('Enter');
-    await expect.poll(async () => (await canvasShot(page)).equals(painted), { timeout: 5000 }).toBe(false);
+    await expect
+      .poll(async () => (await canvasShot(page)).equals(painted), { timeout: 5000 })
+      .toBe(false);
 
     // -- text tool creates an editable text node rendered by CanvasKit
     await page.getByTestId('tool-text').click();

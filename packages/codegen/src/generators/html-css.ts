@@ -22,7 +22,13 @@ function cssBlock(className: string, css: Record<string, string>): string {
   return `.${className} {\n${decls}\n}`;
 }
 
-function renderNode(tree: ResolvedTree, node: SceneNode, indent: string, insideAutoLayout: boolean, state: RenderState): string {
+function renderNode(
+  tree: ResolvedTree,
+  node: SceneNode,
+  indent: string,
+  insideAutoLayout: boolean,
+  state: RenderState,
+): string {
   const pad = indent;
 
   if (node.type === 'TEXT') {
@@ -68,7 +74,9 @@ function renderNode(tree: ResolvedTree, node: SceneNode, indent: string, insideA
     const childLines = children.map((child) => {
       if (autoLayout) return renderNode(tree, child, pad + '  ', true, state);
       const pos =
-        'x' in child && 'y' in child ? computeAbsolutePosition(child.x, child.y, child.width, child.height) : undefined;
+        'x' in child && 'y' in child
+          ? computeAbsolutePosition(child.x, child.y, child.width, child.height)
+          : undefined;
       const inner = renderNode(tree, child, pad + '    ', false, state);
       if (!pos) return inner;
       const wrapClass = nextClass(state, 'pos');

@@ -5,7 +5,10 @@ const clamp01 = (n: number) => Math.min(1, Math.max(0, n));
 /** #rgb / #rrggbb / #rrggbbaa (case-insensitive, optional leading #) → Color (0–1 floats). */
 export function hexToColor(hex: string): Color | null {
   const clean = hex.trim().replace(/^#/, '');
-  let r: number, g: number, b: number, a = 255;
+  let r: number,
+    g: number,
+    b: number,
+    a = 255;
 
   if (clean.length === 3) {
     r = parseInt(clean[0]! + clean[0], 16);

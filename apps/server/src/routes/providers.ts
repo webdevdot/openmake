@@ -25,7 +25,11 @@ interface SafeProviderView {
   enabled: boolean;
 }
 
-function toSafeView(row: { provider: string; baseUrl: string | null; enabled: boolean }): SafeProviderView {
+function toSafeView(row: {
+  provider: string;
+  baseUrl: string | null;
+  enabled: boolean;
+}): SafeProviderView {
   return {
     provider: row.provider,
     hasKey: true,

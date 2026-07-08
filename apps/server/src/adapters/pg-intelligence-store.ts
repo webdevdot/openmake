@@ -32,7 +32,8 @@ function toAgentSpec(agent: AgentWithSkills): AgentSpec {
     name: agent.name,
     model: { provider: agent.provider, model: agent.model },
     skills: agent.skills.map(toSkillSpec),
-    config: (agent.config as { temperature?: number; maxOutputTokens?: number } | null) ?? undefined,
+    config:
+      (agent.config as { temperature?: number; maxOutputTokens?: number } | null) ?? undefined,
   };
 }
 

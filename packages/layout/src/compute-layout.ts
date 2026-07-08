@@ -213,8 +213,26 @@ function configureChild(
 
   // Main-axis sizing: FILL -> flexGrow; HUG text -> auto (content-based via
   // measureText); HUG container -> its already-resolved size; FIXED -> explicit.
-  configureAxis(yoga, yogaChild, 'width', sizingH, resolvedWidth, isMainAxisHorizontal, childIsText, childHasAutoLayout);
-  configureAxis(yoga, yogaChild, 'height', sizingV, resolvedHeight, !isMainAxisHorizontal, childIsText, childHasAutoLayout);
+  configureAxis(
+    yoga,
+    yogaChild,
+    'width',
+    sizingH,
+    resolvedWidth,
+    isMainAxisHorizontal,
+    childIsText,
+    childHasAutoLayout,
+  );
+  configureAxis(
+    yoga,
+    yogaChild,
+    'height',
+    sizingV,
+    resolvedHeight,
+    !isMainAxisHorizontal,
+    childIsText,
+    childHasAutoLayout,
+  );
 
   // Cross-axis FILL means "stretch to fill the cross axis" via alignSelf.
   if (isMainAxisHorizontal && sizingV === 'FILL') {

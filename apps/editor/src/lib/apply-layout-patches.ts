@@ -28,6 +28,7 @@ export function applyLayoutPatches(doc: OpenDoc, patches: Map<string, LayoutPatc
   }
   if (toApply.length === 0) return;
   doc.transact(() => {
-    for (const [id, patch] of toApply) doc.updateNode(id, patch as unknown as Record<string, unknown>);
+    for (const [id, patch] of toApply)
+      doc.updateNode(id, patch as unknown as Record<string, unknown>);
   });
 }

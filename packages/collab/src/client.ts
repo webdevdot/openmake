@@ -24,8 +24,13 @@ const MAX_BACKOFF_MS = 30_000;
 export interface CollabClientOptions {
   /** Injectable WebSocket constructor, for tests or non-browser environments. */
   WebSocketImpl?: typeof WebSocket;
-  /** Appended as a `?token=` query param on the connection URL. */
-  token?: string;
+  /**
+   * Appended as a `?token=` query param on the connection URL. Pass a
+   * function to have it resolved fresh at every connect attempt (initial and
+   * reconnects) — required when tokens are short-lived and would otherwise go
+   * stale between reconnects.
+   */
+  token?: string | (() => string | Promise<string>);
   /** Connect immediately on construction. Defaults to true. */
   connect?: boolean;
 }
@@ -42,13 +47,15 @@ export class CollabClient {
   private readonly docId: string;
   private readonly ydoc: Y.Doc;
   private readonly WebSocketImpl: typeof WebSocket;
-  private readonly token: string | undefined;
+  private readonly token: string | (() => string | Promise<string>) | undefined;
 
   private ws: WebSocket | null = null;
   private status: ClientStatus = 'disconnected';
   private synced = false;
   private destroyed = false;
   private shouldConnect: boolean;
+  private opening = false;
+  private closeCode: number | null = null;
   private backoffMs = MIN_BACKOFF_MS;
   private reconnectTimer: ReturnType<typeof setTimeout> | null = null;
 
@@ -124,6 +131,15 @@ export class CollabClient {
     this.awareness.setLocalState(state);
   }
 
+  /**
+   * Close code of the most recent socket close, or null before any close (or
+   * when the transport didn't report one). Lets token providers detect
+   * auth-shaped rejections (1008) and refresh before the next attempt.
+   */
+  get lastCloseCode(): number | null {
+    return this.closeCode;
+  }
+
   on(event: 'status', cb: StatusListener): () => void;
   on(event: 'synced', cb: SyncedListener): () => void;
   on(event: 'status' | 'synced', cb: StatusListener | SyncedListener): () => void {
@@ -138,11 +154,35 @@ export class CollabClient {
   }
 
   private openSocket(): void {
+    if (this.ws || this.opening) return;
+    this.opening = true;
     this.setStatus('connecting');
+    // Resolve the token fresh for EVERY attempt (initial connect and each
+    // reconnect) so short-lived credentials never go stale across retries.
+    void Promise.resolve()
+      .then(() => (typeof this.token === 'function' ? this.token() : this.token))
+      .then(
+        (token) => {
+          this.opening = false;
+          if (this.destroyed || !this.shouldConnect || this.ws) return;
+          this.openSocketWithToken(token);
+        },
+        () => {
+          // Token resolution failed: treat like a failed attempt and retry
+          // with the usual backoff.
+          this.opening = false;
+          if (this.destroyed || !this.shouldConnect) return;
+          this.setStatus('disconnected');
+          this.scheduleReconnect();
+        },
+      );
+  }
+
+  private openSocketWithToken(token: string | undefined): void {
     const target = new URL(this.url);
     if (!target.pathname.endsWith('/')) target.pathname += '/';
     target.pathname += encodeURIComponent(this.docId);
-    if (this.token) target.searchParams.set('token', this.token);
+    if (token) target.searchParams.set('token', token);
 
     const ws = new this.WebSocketImpl(target.toString());
     ws.binaryType = 'arraybuffer';
@@ -161,7 +201,9 @@ export class CollabClient {
       if (data) this.handleMessage(data);
     });
 
-    ws.addEventListener('close', () => {
+    ws.addEventListener('close', (event: CloseEvent) => {
+      const code: unknown = (event as Partial<CloseEvent> | undefined)?.code;
+      this.closeCode = typeof code === 'number' ? code : null;
       this.ws = null;
       awarenessProtocol.removeAwarenessStates(
         this.awareness,

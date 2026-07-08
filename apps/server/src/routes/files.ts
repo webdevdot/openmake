@@ -1,18 +1,64 @@
 import { z } from 'zod';
 import * as Y from 'yjs';
 import { OpenDoc } from '@openmake/core';
+import type { DocumentData } from '@openmake/shared';
 import type { FastifyInstance, FastifyRequest } from 'fastify';
 import { HttpError, parseOrThrow } from '../plugins/error-handler.js';
 import { requireOrgRole, resolveOrgIdFromFile, resolveOrgIdFromProject } from '../plugins/auth.js';
 import { loadMergedYDoc } from '../services/doc-service.js';
 
+/** Maximum number of nodes accepted by POST /projects/:projectId/files/import. */
+export const MAX_IMPORT_NODES = 50_000;
+
+/**
+ * Maximum combined entry count across ALL document collections
+ * (nodes + styles + variables + variableModes + assets) accepted by import.
+ * OpenDoc.fromJSON + Y.encodeStateAsUpdate are synchronous and their cost
+ * scales with total entries, not just nodes — capping only `nodes` would let
+ * a document with a handful of nodes but hundreds of thousands of styles
+ * block the event loop for the same cost (see DoS review finding).
+ */
+export const MAX_IMPORT_ENTRIES = 60_000;
+
+/**
+ * Body limit for POST /projects/:projectId/files/import. Synchronous
+ * JSON.parse + Y.Doc hydration cost scales roughly linearly with body size
+ * (~35 ms/MiB measured), so this is the hard ceiling on per-request event-loop
+ * blocking. 10 MiB comfortably fits MAX_IMPORT_NODES minimal nodes (~200 B of
+ * JSON each) while keeping worst-case blocking to roughly a third of the
+ * previous 25 MiB limit.
+ */
+export const MAX_IMPORT_BODY_BYTES = 10 * 1024 * 1024;
+
+/**
+ * Per-IP rate limit for the import route. Import is the most expensive
+ * synchronous endpoint on the server; the global 200/min limit alone would
+ * allow one client to keep the shared event loop saturated cross-tenant.
+ */
+export const IMPORT_RATE_LIMIT_PER_MINUTE = 10;
+
 const ProjectIdParamsSchema = z.object({ projectId: z.string().min(1) });
 const FileIdParamsSchema = z.object({ fileId: z.string().min(1) });
 const CreateFileSchema = z.object({ name: z.string().min(1) });
+const ImportFileSchema = z.object({
+  name: z.string().min(1).max(200),
+  document: z.unknown(),
+});
 const UpdateFileSchema = z.object({
   name: z.string().min(1).optional(),
   thumbnailUrl: z.string().nullable().optional(),
 });
+
+function isPlainObject(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+/** Entry count of a record or array; 0 for anything else (schema validation rejects those later). */
+function collectionSize(value: unknown): number {
+  if (Array.isArray(value)) return value.length;
+  if (isPlainObject(value)) return Object.keys(value).length;
+  return 0;
+}
 
 async function resolveOrgIdFromProjectParam(request: FastifyRequest): Promise<string | undefined> {
   const { projectId } = parseOrThrow(ProjectIdParamsSchema, request.params);
@@ -52,6 +98,80 @@ export async function fileRoutes(app: FastifyInstance): Promise<void> {
         orgId,
         userId: request.user!.id,
         action: 'file.create',
+        targetType: 'file',
+        targetId: file.id,
+      });
+
+      reply.status(201);
+      return { file };
+    },
+  );
+
+  app.post(
+    '/projects/:projectId/files/import',
+    {
+      preHandler: [app.authenticate, requireOrgRole('EDITOR', resolveOrgIdFromProjectParam)],
+      bodyLimit: MAX_IMPORT_BODY_BYTES,
+      config: {
+        rateLimit: { max: IMPORT_RATE_LIMIT_PER_MINUTE, timeWindow: '1 minute' },
+      },
+    },
+    async (request, reply) => {
+      const { projectId } = parseOrThrow(ProjectIdParamsSchema, request.params);
+      const body = parseOrThrow(ImportFileSchema, request.body);
+      const { document } = body;
+
+      // Cheap structural guards BEFORE hydrating anything into a Y.Doc.
+      if (!isPlainObject(document)) {
+        throw new HttpError(400, 'INVALID_DOCUMENT', 'Document must be a JSON object');
+      }
+      const nodeCount = collectionSize(document.nodes);
+      if (nodeCount > MAX_IMPORT_NODES) {
+        throw new HttpError(
+          400,
+          'DOCUMENT_TOO_LARGE',
+          `Document exceeds the maximum of ${MAX_IMPORT_NODES} nodes`,
+        );
+      }
+      // Hydration cost scales with EVERY collection, not just nodes — bound
+      // the combined size so huge styles/variables/assets maps can't sneak
+      // past the node-count guard.
+      const totalEntries =
+        nodeCount +
+        collectionSize(document.styles) +
+        collectionSize(document.variables) +
+        collectionSize(document.variableModes) +
+        collectionSize(document.assets);
+      if (totalEntries > MAX_IMPORT_ENTRIES) {
+        throw new HttpError(
+          400,
+          'DOCUMENT_TOO_LARGE',
+          `Document exceeds the maximum of ${MAX_IMPORT_ENTRIES} total entries`,
+        );
+      }
+
+      let doc: OpenDoc;
+      try {
+        doc = OpenDoc.fromJSON(document as DocumentData);
+      } catch (err) {
+        // Log only the error identity — the full Zod error embeds
+        // attacker-supplied document field paths/values.
+        request.log.warn(
+          { errName: err instanceof Error ? err.name : typeof err },
+          'file import: document failed schema validation',
+        );
+        throw new HttpError(400, 'INVALID_DOCUMENT', 'Document failed schema validation');
+      }
+
+      const state = Y.encodeStateAsUpdate(doc.ydoc);
+      const file = await app.db.files.create({ projectId, name: body.name });
+      await app.db.docs.saveSnapshot(file.id, 0, state);
+
+      const orgId = await resolveOrgIdFromProject(app, projectId);
+      await app.db.audit.append({
+        orgId,
+        userId: request.user!.id,
+        action: 'file.import',
         targetType: 'file',
         targetId: file.id,
       });

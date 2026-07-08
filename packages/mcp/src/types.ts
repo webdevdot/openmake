@@ -53,7 +53,11 @@ export interface IntelligenceStore {
   ): Promise<{ id: string }>;
   attachIntelligence(componentId: string, att: IntelligenceAttachment): Promise<void>;
   listAttachments(componentId: string): Promise<IntelligenceAttachment[]>;
-  saveGeneratedCode(componentId: string, framework: string, code: string): Promise<{ version: number }>;
+  saveGeneratedCode(
+    componentId: string,
+    framework: string,
+    code: string,
+  ): Promise<{ version: number }>;
   getGeneratedCode(componentId: string, framework?: string): Promise<GeneratedCodeRecord[]>;
   searchComponents(queryText: string): Promise<ComponentSearchResult[]>;
 }

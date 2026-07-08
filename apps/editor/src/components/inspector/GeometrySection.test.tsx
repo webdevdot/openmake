@@ -7,7 +7,14 @@ describe('GeometrySection', () => {
   it('commits a numeric X change via updateNode on blur', () => {
     const doc = OpenDoc.create();
     const pageId = doc.getPages()[0]!;
-    const rectId = doc.createNode({ type: 'RECTANGLE', parentId: pageId, x: 0, y: 0, width: 10, height: 10 });
+    const rectId = doc.createNode({
+      type: 'RECTANGLE',
+      parentId: pageId,
+      x: 0,
+      y: 0,
+      width: 10,
+      height: 10,
+    });
     const node = doc.getNode(rectId)!;
     const updateSpy = vi.spyOn(doc, 'updateNode');
 
@@ -23,7 +30,14 @@ describe('GeometrySection', () => {
   it('reverts an invalid (non-numeric) input on blur without calling updateNode', () => {
     const doc = OpenDoc.create();
     const pageId = doc.getPages()[0]!;
-    const rectId = doc.createNode({ type: 'RECTANGLE', parentId: pageId, x: 5, y: 0, width: 10, height: 10 });
+    const rectId = doc.createNode({
+      type: 'RECTANGLE',
+      parentId: pageId,
+      x: 5,
+      y: 0,
+      width: 10,
+      height: 10,
+    });
     const node = doc.getNode(rectId)!;
     const updateSpy = vi.spyOn(doc, 'updateNode');
 

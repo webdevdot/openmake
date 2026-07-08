@@ -26,7 +26,11 @@ describe('auth store', () => {
   });
 
   it('logout clears user/token and marks unauthenticated', () => {
-    useAuthStore.setState({ user: { id: '1', email: 'a@b.com', name: 'A' }, accessToken: 'abc', status: 'authenticated' });
+    useAuthStore.setState({
+      user: { id: '1', email: 'a@b.com', name: 'A' },
+      accessToken: 'abc',
+      status: 'authenticated',
+    });
 
     useAuthStore.getState().logout();
 

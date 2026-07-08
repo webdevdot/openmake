@@ -69,7 +69,10 @@ export function EffectsSection({ doc, node }: EffectsSectionProps) {
               value={effect.offset.x}
               onChange={(e) => {
                 const next = [...effects];
-                next[index] = { ...effect, offset: { ...effect.offset, x: Number(e.target.value) } };
+                next[index] = {
+                  ...effect,
+                  offset: { ...effect.offset, x: Number(e.target.value) },
+                };
                 commit(next);
               }}
             />
@@ -80,7 +83,10 @@ export function EffectsSection({ doc, node }: EffectsSectionProps) {
               value={effect.offset.y}
               onChange={(e) => {
                 const next = [...effects];
-                next[index] = { ...effect, offset: { ...effect.offset, y: Number(e.target.value) } };
+                next[index] = {
+                  ...effect,
+                  offset: { ...effect.offset, y: Number(e.target.value) },
+                };
                 commit(next);
               }}
             />
@@ -97,7 +103,12 @@ export function EffectsSection({ doc, node }: EffectsSectionProps) {
                 commit(next);
               }}
             />
-            <button type="button" data-testid="remove-effect-button" className="text-xs text-secondary-app" onClick={() => commit(effects.filter((_, i) => i !== index))}>
+            <button
+              type="button"
+              data-testid="remove-effect-button"
+              className="text-xs text-secondary-app"
+              onClick={() => commit(effects.filter((_, i) => i !== index))}
+            >
               ✕
             </button>
           </div>

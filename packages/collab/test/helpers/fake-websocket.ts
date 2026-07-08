@@ -27,7 +27,9 @@ export function createHubBackedWebSocket(hub: DocSyncHub): typeof WebSocket {
 
     constructor(url: string) {
       this.url = url;
-      const docId = decodeURIComponent(new URL(url).pathname.split('/').filter(Boolean).pop() ?? '');
+      const docId = decodeURIComponent(
+        new URL(url).pathname.split('/').filter(Boolean).pop() ?? '',
+      );
 
       // The "server-side" endpoint the hub is handed. Its send()/close() push
       // frames back to this fake client; its on() registers the callbacks

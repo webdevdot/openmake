@@ -49,7 +49,11 @@ export function computeFlexLayout(autoLayout: AutoLayout): FlexLayout {
   }
 
   const { paddingTop, paddingRight, paddingBottom, paddingLeft } = autoLayout;
-  if (paddingTop === paddingRight && paddingRight === paddingBottom && paddingBottom === paddingLeft) {
+  if (
+    paddingTop === paddingRight &&
+    paddingRight === paddingBottom &&
+    paddingBottom === paddingLeft
+  ) {
     if (paddingTop > 0) {
       css['padding'] = `${round2(paddingTop)}px`;
       tw.push(`p-[${round2(paddingTop)}px]`);
@@ -93,7 +97,12 @@ export interface AbsolutePosition {
 }
 
 /** Position of a child inside a non-auto-layout (freeform) container. */
-export function computeAbsolutePosition(x: number, y: number, width: number, height: number): AbsolutePosition {
+export function computeAbsolutePosition(
+  x: number,
+  y: number,
+  width: number,
+  height: number,
+): AbsolutePosition {
   return {
     css: {
       position: 'absolute',

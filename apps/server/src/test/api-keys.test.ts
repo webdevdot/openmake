@@ -22,7 +22,11 @@ describe('api keys', () => {
     const registerRes = await ctx.app.inject({
       method: 'POST',
       url: '/api/v1/auth/register',
-      payload: { email: 'keyholder@example.com', password: 'supersecretpassword', name: 'Keyholder' },
+      payload: {
+        email: 'keyholder@example.com',
+        password: 'supersecretpassword',
+        name: 'Keyholder',
+      },
     });
     accessToken = registerRes.json().accessToken;
 

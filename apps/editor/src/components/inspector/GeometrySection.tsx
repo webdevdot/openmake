@@ -19,9 +19,24 @@ export function GeometrySection({ doc, node }: GeometrySectionProps) {
     <div className="grid grid-cols-2 gap-2 border-b p-2 border-app" data-testid="geometry-section">
       <NumberField label="X" value={node.x} onCommit={(v) => update({ x: v })} testId="input-x" />
       <NumberField label="Y" value={node.y} onCommit={(v) => update({ y: v })} testId="input-y" />
-      <NumberField label="W" value={node.width} onCommit={(v) => update({ width: Math.max(0, v) })} testId="input-w" />
-      <NumberField label="H" value={node.height} onCommit={(v) => update({ height: Math.max(0, v) })} testId="input-h" />
-      <NumberField label="∠" value={node.rotation} onCommit={(v) => update({ rotation: v })} testId="input-rotation" />
+      <NumberField
+        label="W"
+        value={node.width}
+        onCommit={(v) => update({ width: Math.max(0, v) })}
+        testId="input-w"
+      />
+      <NumberField
+        label="H"
+        value={node.height}
+        onCommit={(v) => update({ height: Math.max(0, v) })}
+        testId="input-h"
+      />
+      <NumberField
+        label="∠"
+        value={node.rotation}
+        onCommit={(v) => update({ rotation: v })}
+        testId="input-rotation"
+      />
       {hasCornerRadius && (
         <NumberField
           label="⌒"

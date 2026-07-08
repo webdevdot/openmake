@@ -45,7 +45,11 @@ describe('sync (websocket)', () => {
     const registerRes = await ctx.app.inject({
       method: 'POST',
       url: '/api/v1/auth/register',
-      payload: { email: 'syncuser@example.com', password: 'supersecretpassword', name: 'Sync User' },
+      payload: {
+        email: 'syncuser@example.com',
+        password: 'supersecretpassword',
+        name: 'Sync User',
+      },
     });
     accessToken = registerRes.json().accessToken;
 

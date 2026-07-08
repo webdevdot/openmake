@@ -28,5 +28,7 @@ export const filesApi = {
     api.get<{ files: FileMeta[] }>(`/projects/${projectId}/files`).then((r) => r.files),
   create: (projectId: string, name: string) =>
     api.post<{ file: FileMeta }>(`/projects/${projectId}/files`, { name }).then((r) => r.file),
+  import: (projectId: string, body: { name: string; document: unknown }) =>
+    api.post<{ file: FileMeta }>(`/projects/${projectId}/files/import`, body).then((r) => r.file),
   get: (fileId: string) => api.get<{ file: FileMeta }>(`/files/${fileId}`).then((r) => r.file),
 };

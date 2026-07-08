@@ -40,7 +40,10 @@ export interface BuildAppOptions {
 }
 
 /** Builds a fully-wired, injectable Fastify instance. Does not call listen(). */
-export async function buildApp(config: Config, opts: BuildAppOptions = {}): Promise<FastifyInstance> {
+export async function buildApp(
+  config: Config,
+  opts: BuildAppOptions = {},
+): Promise<FastifyInstance> {
   const app = fastify({
     logger: opts.logger ?? true,
   });

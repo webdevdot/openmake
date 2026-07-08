@@ -37,22 +37,22 @@ pnpm dev                      # all dev servers
 
 ## Monorepo layout
 
-| Path | Package | Purpose |
-| --- | --- | --- |
-| `apps/editor` | `@openmake/editor` | Web editor UI |
-| `apps/server` | `@openmake/server` | API + sync + MCP host |
-| `packages/core` | `@openmake/core` | Headless scene-graph engine (on Y.Doc) |
-| `packages/renderer` | `@openmake/renderer` | CanvasKit renderer behind a `Renderer` interface |
-| `packages/layout` | `@openmake/layout` | Auto-layout (Yoga flex) + constraints |
-| `packages/collab` | `@openmake/collab` | Yjs sync, offline persistence, awareness |
-| `packages/database` | `@openmake/database` | Prisma schema, migrations, repositories |
-| `packages/ai` | `@openmake/ai` | Providers, Skills/Agents/Workflows, Context Builder |
-| `packages/mcp` | `@openmake/mcp` | MCP server (stdio + HTTP), design read/write tools |
-| `packages/codegen` | `@openmake/codegen` | Design-to-code generators |
-| `packages/cli` | `@openmake/cli` | Headless CLI (export, query, workflows) |
-| `packages/plugin-sdk` | `@openmake/plugin-sdk` | Plugin API types |
-| `packages/figma-importer` | `@openmake/figma-importer` | Figma migration framework (stub) |
-| `packages/shared` | `@openmake/shared` | Shared types + zod schemas |
+| Path                      | Package                    | Purpose                                             |
+| ------------------------- | -------------------------- | --------------------------------------------------- |
+| `apps/editor`             | `@openmake/editor`         | Web editor UI                                       |
+| `apps/server`             | `@openmake/server`         | API + sync + MCP host                               |
+| `packages/core`           | `@openmake/core`           | Headless scene-graph engine (on Y.Doc)              |
+| `packages/renderer`       | `@openmake/renderer`       | CanvasKit renderer behind a `Renderer` interface    |
+| `packages/layout`         | `@openmake/layout`         | Auto-layout (Yoga flex) + constraints               |
+| `packages/collab`         | `@openmake/collab`         | Yjs sync, offline persistence, awareness            |
+| `packages/database`       | `@openmake/database`       | Prisma schema, migrations, repositories             |
+| `packages/ai`             | `@openmake/ai`             | Providers, Skills/Agents/Workflows, Context Builder |
+| `packages/mcp`            | `@openmake/mcp`            | MCP server (stdio + HTTP), design read/write tools  |
+| `packages/codegen`        | `@openmake/codegen`        | Design-to-code generators                           |
+| `packages/cli`            | `@openmake/cli`            | Headless CLI (export, query, workflows)             |
+| `packages/plugin-sdk`     | `@openmake/plugin-sdk`     | Plugin API types                                    |
+| `packages/figma-importer` | `@openmake/figma-importer` | Figma migration framework (stub)                    |
+| `packages/shared`         | `@openmake/shared`         | Shared types + zod schemas                          |
 
 ## License
 

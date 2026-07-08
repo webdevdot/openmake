@@ -39,7 +39,12 @@ export function Canvas({ doc, pageId, onCursorMoveWorld }: CanvasProps) {
   const [textEditorNodeId, setTextEditorNodeId] = useState<string | null>(null);
   const pendingTextRef = useRef<{ x: number; y: number } | null>(null);
 
-  const createShape = useCreateShapeGesture({ doc, pageId, cameraRef, onCreated: () => setTool('select') });
+  const createShape = useCreateShapeGesture({
+    doc,
+    pageId,
+    cameraRef,
+    onCreated: () => setTool('select'),
+  });
   const selectGesture = useSelectGesture({ doc, pageId, cameraRef });
 
   // --- Setup: renderer + fonts + rAF loop ------------------------------------
@@ -64,7 +69,12 @@ export function Canvas({ doc, pageId, onCursorMoveWorld }: CanvasProps) {
         // resize() owns the canvas buffer + WebGL surface recreation.
         renderer.resize(width, height, dpr);
 
-        loopRef.current = new RenderLoop(renderer, doc, () => pageId, () => cameraRef.current);
+        loopRef.current = new RenderLoop(
+          renderer,
+          doc,
+          () => pageId,
+          () => cameraRef.current,
+        );
         setReady(true);
       } catch (err) {
         console.error('Canvas renderer failed to initialize', err);
@@ -117,20 +127,41 @@ export function Canvas({ doc, pageId, onCursorMoveWorld }: CanvasProps) {
 
   const isPanMode = tool === 'hand' || spaceHeld;
 
+  // --- External camera changes (zoom shortcuts, ZoomMenu) → live camera ref --
+  // Canvas's own gestures write cameraRef first and mirror the same object into
+  // the store, so the reference check makes this a no-op for internal updates.
+  useEffect(() => {
+    return useCameraStore.subscribe((state) => {
+      if (state.camera !== cameraRef.current) {
+        cameraRef.current = state.camera;
+        loopRef.current?.markDirty();
+      }
+    });
+  }, []);
+
   // --- Wheel: scroll to pan, cmd/ctrl+wheel to zoom at cursor ----------------
-  const onWheel = (e: React.WheelEvent<HTMLCanvasElement>) => {
-    e.preventDefault();
-    const rect = canvasRef.current!.getBoundingClientRect();
-    const anchor = { x: e.clientX - rect.left, y: e.clientY - rect.top };
-    if (e.metaKey || e.ctrlKey) {
-      const factor = Math.exp(-e.deltaY * 0.01);
-      cameraRef.current = zoomByFactor(cameraRef.current, anchor, factor);
-    } else {
-      cameraRef.current = panBy(cameraRef.current, { x: -e.deltaX, y: -e.deltaY });
-    }
-    setCamera(cameraRef.current);
-    loopRef.current?.markDirty();
-  };
+  // Attached natively (not via React's onWheel): React delegates wheel through
+  // a passive root listener, where preventDefault() is ignored and the browser
+  // fights the canvas with page scroll/pinch-zoom.
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const onWheel = (e: WheelEvent) => {
+      e.preventDefault();
+      const rect = canvas.getBoundingClientRect();
+      const anchor = { x: e.clientX - rect.left, y: e.clientY - rect.top };
+      if (e.metaKey || e.ctrlKey) {
+        const factor = Math.exp(-e.deltaY * 0.01);
+        cameraRef.current = zoomByFactor(cameraRef.current, anchor, factor);
+      } else {
+        cameraRef.current = panBy(cameraRef.current, { x: -e.deltaX, y: -e.deltaY });
+      }
+      setCamera(cameraRef.current);
+      loopRef.current?.markDirty();
+    };
+    canvas.addEventListener('wheel', onWheel, { passive: false });
+    return () => canvas.removeEventListener('wheel', onWheel);
+  }, [setCamera]);
 
   const panDragRef = useRef<{ x: number; y: number } | null>(null);
 
@@ -204,7 +235,10 @@ export function Canvas({ doc, pageId, onCursorMoveWorld }: CanvasProps) {
       return;
     }
     if (tool === 'select') {
-      selectGesture.onPointerUp(e, { setMarquee, marqueeHits: (rect, candidates) => marqueeHits(rect, candidates) });
+      selectGesture.onPointerUp(e, {
+        setMarquee,
+        marqueeHits: (rect, candidates) => marqueeHits(rect, candidates),
+      });
       return;
     }
     createShape.onPointerUp(e);
@@ -220,7 +254,11 @@ export function Canvas({ doc, pageId, onCursorMoveWorld }: CanvasProps) {
       : 'cursor-crosshair';
 
   return (
-    <div ref={containerRef} className="relative flex-1 overflow-hidden bg-canvas-app" data-testid="canvas-container">
+    <div
+      ref={containerRef}
+      className="relative flex-1 overflow-hidden bg-canvas-app"
+      data-testid="canvas-container"
+    >
       {initError && (
         <div
           data-testid="canvas-init-error"
@@ -233,7 +271,6 @@ export function Canvas({ doc, pageId, onCursorMoveWorld }: CanvasProps) {
         ref={canvasRef}
         className={cursorClass}
         style={{ width: '100%', height: '100%', display: 'block' }}
-        onWheel={onWheel}
         onPointerDown={onPointerDown}
         onPointerMove={onPointerMove}
         onPointerUp={onPointerUp}

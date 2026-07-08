@@ -1,5 +1,6 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useParams } from 'react-router-dom';
+import { Square } from 'lucide-react';
 import { initLayout } from '@openmake/layout';
 import { createCanvasKitRenderer, buildRenderScene, exportSVG } from '@openmake/renderer';
 import { useCollab } from '../hooks/useCollab.js';
@@ -8,11 +9,14 @@ import { useAutoLayout } from '../hooks/useAutoLayout.js';
 import { useAwareness } from '../hooks/useAwareness.js';
 import { useSelectionStore } from '../store/selection.js';
 import { useToolStore } from '../store/tool.js';
+import { useCameraStore } from '../store/camera.js';
+import { clampZoom, zoomByFactor } from '../canvas/camera.js';
 import { resolveShortcut } from '../lib/shortcuts.js';
 import { duplicateOffset } from '../lib/duplicate.js';
 import { downloadBytes, downloadText } from '../lib/export.js';
 import { loadEditorFonts } from '../canvas/fonts.js';
-import { Toolbar } from '../components/toolbar/Toolbar.js';
+import { TopBar } from '../components/toolbar/TopBar.js';
+import { BottomToolbar } from '../components/toolbar/BottomToolbar.js';
 import { LeftPanel } from '../components/panels/LeftPanel.js';
 import { Inspector } from '../components/inspector/Inspector.js';
 import { Canvas } from '../components/canvas/Canvas.js';
@@ -24,6 +28,7 @@ export function EditorPage() {
   const [layoutReady, setLayoutReady] = useState(false);
   const [activePageId, setActivePageId] = useState<string | null>(null);
   const [presenting, setPresenting] = useState<string | null>(null);
+  const canvasWrapRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     void initLayout().then(() => setLayoutReady(true));
@@ -77,10 +82,20 @@ export function EditorPage() {
             const parentId = doc.getParentId(id);
             if (!parentId) continue;
             const offset = duplicateOffset(node);
-            const { id: _ignored, children: _c, ...rest } = node as unknown as Record<string, unknown>;
+            const {
+              id: _ignored,
+              children: _c,
+              ...rest
+            } = node as unknown as Record<string, unknown>;
             void _ignored;
             void _c;
-            const newId = doc.createNode({ ...rest, type: node.type, parentId, x: offset.x, y: offset.y } as never);
+            const newId = doc.createNode({
+              ...rest,
+              type: node.type,
+              parentId,
+              x: offset.x,
+              y: offset.y,
+            } as never);
             newIds.push(newId);
           }
           doc.commitUndoGroup();
@@ -90,6 +105,23 @@ export function EditorPage() {
         case 'deselect':
           useSelectionStore.getState().clear();
           break;
+        case 'zoom-in':
+        case 'zoom-out': {
+          // Anchor at the canvas viewport center so the view zooms in place.
+          const wrap = canvasWrapRef.current;
+          const anchor = { x: (wrap?.clientWidth ?? 0) / 2, y: (wrap?.clientHeight ?? 0) / 2 };
+          const cameraStore = useCameraStore.getState();
+          cameraStore.setCamera(
+            zoomByFactor(cameraStore.camera, anchor, action.type === 'zoom-in' ? 1.25 : 0.8),
+          );
+          break;
+        }
+        case 'zoom-reset': {
+          // Matches ZoomMenu's reset: zoom back to 100%, keep the pan.
+          const cameraStore = useCameraStore.getState();
+          cameraStore.setCamera({ ...cameraStore.camera, zoom: clampZoom(1) });
+          break;
+        }
         case 'nudge':
           for (const id of selection) {
             const node = doc.getNode(id);
@@ -124,38 +156,72 @@ export function EditorPage() {
 
   const canvasEl = useMemo(() => {
     if (!session || !activePageId) return null;
-    return <Canvas doc={session.doc} pageId={activePageId} onCursorMoveWorld={onPointerMoveWorld} />;
+    return (
+      <Canvas doc={session.doc} pageId={activePageId} onCursorMoveWorld={onPointerMoveWorld} />
+    );
   }, [session, activePageId, onPointerMoveWorld]);
 
   if (!session || !activePageId) {
-    return <div className="flex h-full items-center justify-center text-xs text-secondary-app">Loading…</div>;
+    return (
+      <div className="flex h-full items-center justify-center text-xs text-secondary-app">
+        Loading…
+      </div>
+    );
   }
 
   return (
     <div className="flex h-full flex-col bg-canvas-app">
-      <Toolbar
+      <TopBar
         doc={session.doc}
         status={session.status}
         onExportPNG={() => {
           const [id] = useSelectionStore.getState().selectedIds;
           if (id) void handleExportPNG(id, 1);
+          else window.alert('Select a layer to export');
         }}
         onExportSVG={() => {
           const [id] = useSelectionStore.getState().selectedIds;
           if (id) handleExportSVG(id);
+          else window.alert('Select a layer to export');
         }}
         onPresent={() => {
-          const pageFrameIds = session.doc.getChildrenIds(activePageId).filter((id) => session.doc.getNode(id)?.type === 'FRAME');
+          const pageFrameIds = session.doc
+            .getChildrenIds(activePageId)
+            .filter((id) => session.doc.getNode(id)?.type === 'FRAME');
           if (pageFrameIds[0]) setPresenting(pageFrameIds[0]);
+          else window.alert('Add a frame to present');
         }}
       />
       <div className="flex flex-1 overflow-hidden">
         <LeftPanel doc={session.doc} activePageId={activePageId} onSelectPage={setActivePageId} />
-        {canvasEl}
-        <Inspector doc={session.doc} pageId={activePageId} onExportPNG={handleExportPNG} onExportSVG={handleExportSVG} />
+        {/* Relative wrapper takes over the flex-1 role so the floating
+            BottomToolbar pill centers over the canvas only, not the full
+            row. Canvas's own flex-1 root stretches to fill this wrapper. */}
+        <div ref={canvasWrapRef} className="relative flex flex-1 overflow-hidden">
+          {canvasEl}
+          <div
+            data-testid="page-chip"
+            className="pointer-events-none absolute left-3 top-3 z-10 flex items-center gap-1.5 rounded px-2 py-1 text-xs bg-floating-app text-zinc-100"
+          >
+            <Square size={14} strokeWidth={1.75} />
+            <span>{session.doc.getNode(activePageId)?.name}</span>
+          </div>
+          <BottomToolbar />
+        </div>
+        <Inspector
+          doc={session.doc}
+          pageId={activePageId}
+          onExportPNG={handleExportPNG}
+          onExportSVG={handleExportSVG}
+        />
       </div>
       {presenting && (
-        <PresentOverlay doc={session.doc} pageId={activePageId} startFrameId={presenting} onExit={() => setPresenting(null)} />
+        <PresentOverlay
+          doc={session.doc}
+          pageId={activePageId}
+          startFrameId={presenting}
+          onExit={() => setPresenting(null)}
+        />
       )}
     </div>
   );

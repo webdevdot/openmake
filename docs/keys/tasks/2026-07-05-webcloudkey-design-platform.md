@@ -9,10 +9,12 @@
 ## Request
 
 Build the self-hostable, open-source Figma-like design platform described in:
+
 - `/Users/hardik/Downloads/WebCloudKey_Architecture_Graph.md`
 - `/Users/hardik/Downloads/WebCloudKey_Design_Platform_Master_Plan.md`
 
 User constraints:
+
 - Check both source docs first; report anything missing/unclear before building.
 - Use the repo/folder naming from the docs — do not invent other names.
 - Verification must include opening the running app with Playwright and deep-checking it.
@@ -142,6 +144,7 @@ Full OWASP pass via security-auditor agent + `pnpm audit`. Initial verdict was
 CHANGES-REQUESTED (4 HIGH cross-tenant IDOR); all fixed and regression-tested.
 
 Findings:
+
 - 🔴→✅ HIGH IDOR (MCP by-file-id read/write): PgDocumentStore + PgIntelligenceStore now assert org ownership
 - 🔴→✅ HIGH VIEWER writes over WS: sync is read-only for VIEWER, EDITOR+ to write
 - 🔴→✅ HIGH IDOR (skills/agents/workflows PATCH/DELETE/GET): scoped to URL org
@@ -168,6 +171,7 @@ Full NEW_PROJECT review via keys:reviewer agent, focused on the security-fix
 commit (highest-risk newest code) + editor↔server contract.
 
 Notes:
+
 - ✅ IDOR fixes complete for every verb (read + write paths) — no verb missed
 - ✅ WS read-only enforcement unbypassable (server-derived, client can't spoof)
 - ✅ frame-size cap correctly layered (ws plugin + hub re-check)
@@ -208,6 +212,7 @@ Status: PASSED (observed evidence)
 ## Final Status: DONE ✅
 
 All three mandatory gates passed:
+
 - Security Gate: PASSED (4 HIGH IDOR + 8 lower findings remediated + regression-tested)
 - Post-Task Review: APPROVED
 - Verification: PASSED (254 tests, editor build, Playwright deep check 3/3, audit clean)

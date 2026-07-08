@@ -5,6 +5,7 @@ import { worldToScreen, type Camera } from '../../canvas/camera.js';
 import { handlePositions, resizeBounds, type HandleId } from '../../canvas/handles.js';
 import type { Rect } from '../../canvas/marquee.js';
 import { useDocVersion } from '../../hooks/document.js';
+import { presenceLabelColor } from '../../lib/presence-color.js';
 import { usePresenceStore } from '../../store/presence.js';
 
 export interface OverlayLayerProps {
@@ -22,7 +23,14 @@ export interface OverlayLayerProps {
  * recomputed imperatively via direct style writes during gestures (see the
  * rAF-synced update below), reconciled by React on commit.
  */
-export function OverlayLayer({ doc, pageId, selection, cameraRef, marquee, getWorldBounds }: OverlayLayerProps) {
+export function OverlayLayer({
+  doc,
+  pageId,
+  selection,
+  cameraRef,
+  marquee,
+  getWorldBounds,
+}: OverlayLayerProps) {
   useDocVersion(doc);
   const containerRef = useRef<HTMLDivElement>(null);
   const [, forceTick] = useState(0);
@@ -48,7 +56,11 @@ export function OverlayLayer({ doc, pageId, selection, cameraRef, marquee, getWo
   const singleBounds = singleSelectedId ? getWorldBounds(singleSelectedId) : null;
 
   return (
-    <div ref={containerRef} className="pointer-events-none absolute inset-0" data-testid="overlay-layer">
+    <div
+      ref={containerRef}
+      className="pointer-events-none absolute inset-0"
+      data-testid="overlay-layer"
+    >
       {selection.map((id) => {
         const node = doc.getNode(id);
         if (!node) return null;
@@ -92,7 +104,14 @@ export function OverlayLayer({ doc, pageId, selection, cameraRef, marquee, getWo
               }}
               onPointerDown={(e) => {
                 e.stopPropagation();
-                startResizeDrag(doc, singleSelectedId, singleBounds, handleId as HandleId, camera, e);
+                startResizeDrag(
+                  doc,
+                  singleSelectedId,
+                  singleBounds,
+                  handleId as HandleId,
+                  camera,
+                  e,
+                );
               }}
             />
           );
@@ -103,8 +122,16 @@ export function OverlayLayer({ doc, pageId, selection, cameraRef, marquee, getWo
           data-testid="rotate-handle"
           className="pointer-events-auto absolute h-2 w-2 rounded-full border bg-white"
           style={{
-            left: worldToScreen(camera, { x: singleBounds.x + singleBounds.width / 2, y: singleBounds.y }).x - 4,
-            top: worldToScreen(camera, { x: singleBounds.x + singleBounds.width / 2, y: singleBounds.y }).y - 20,
+            left:
+              worldToScreen(camera, {
+                x: singleBounds.x + singleBounds.width / 2,
+                y: singleBounds.y,
+              }).x - 4,
+            top:
+              worldToScreen(camera, {
+                x: singleBounds.x + singleBounds.width / 2,
+                y: singleBounds.y,
+              }).y - 20,
             borderColor: 'var(--color-accent)',
             cursor: 'grab',
           }}
@@ -139,7 +166,10 @@ export function OverlayLayer({ doc, pageId, selection, cameraRef, marquee, getWo
             <svg width="14" height="14" viewBox="0 0 16 16" fill={state.color}>
               <path d="M1 1l6 13 2-5 5-2z" />
             </svg>
-            <span className="rounded px-1 text-xs text-white" style={{ backgroundColor: state.color }}>
+            <span
+              className="rounded px-1 text-xs"
+              style={{ backgroundColor: state.color, color: presenceLabelColor(state.color) }}
+            >
               {state.name}
             </span>
           </div>
@@ -160,7 +190,9 @@ function startResizeDrag(
   downEvent: React.PointerEvent,
 ): void {
   const startWorld = { x: downEvent.clientX, y: downEvent.clientY };
-  const canvasRect = (downEvent.target as HTMLElement).closest('[data-testid="canvas-container"]')?.getBoundingClientRect();
+  const canvasRect = (downEvent.target as HTMLElement)
+    .closest('[data-testid="canvas-container"]')
+    ?.getBoundingClientRect();
 
   const toWorld = (clientX: number, clientY: number) => {
     const originX = canvasRect?.left ?? 0;

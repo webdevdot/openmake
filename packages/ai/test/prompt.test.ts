@@ -67,7 +67,10 @@ describe('assemblePrompt', () => {
   });
 
   it('embeds a compact JSON design context before the user request in the prompt', () => {
-    const { prompt } = assemblePrompt({ designContext: SAMPLE_CONTEXT, userRequest: 'Make it blue' });
+    const { prompt } = assemblePrompt({
+      designContext: SAMPLE_CONTEXT,
+      userRequest: 'Make it blue',
+    });
     const contextIdx = prompt.indexOf('"doc_1"');
     const requestIdx = prompt.indexOf('Make it blue');
     expect(contextIdx).toBeGreaterThanOrEqual(0);
@@ -75,7 +78,10 @@ describe('assemblePrompt', () => {
   });
 
   it('strips empty fields from the embedded design context JSON', () => {
-    const { prompt } = assemblePrompt({ designContext: SAMPLE_CONTEXT, userRequest: 'Make it blue' });
+    const { prompt } = assemblePrompt({
+      designContext: SAMPLE_CONTEXT,
+      userRequest: 'Make it blue',
+    });
     expect(prompt).not.toContain('"variables":{}');
     expect(prompt).not.toContain('"styles":{}');
     expect(prompt).not.toContain('"descendants":{}');

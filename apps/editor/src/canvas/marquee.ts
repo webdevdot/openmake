@@ -18,6 +18,9 @@ export function rectsIntersect(a: Rect, b: Rect): boolean {
 }
 
 /** Ids of all candidate bounds that intersect the marquee rect. */
-export function marqueeHits(marquee: Rect, candidates: ReadonlyArray<{ id: string; bounds: Rect }>): string[] {
+export function marqueeHits(
+  marquee: Rect,
+  candidates: ReadonlyArray<{ id: string; bounds: Rect }>,
+): string[] {
   return candidates.filter((c) => rectsIntersect(marquee, c.bounds)).map((c) => c.id);
 }

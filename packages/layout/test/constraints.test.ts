@@ -2,7 +2,10 @@ import { describe, expect, it } from 'vitest';
 import { SceneNodeSchema } from '@openmake/shared';
 import { applyConstraints } from '../src/index.js';
 
-function child(constraints: { horizontal: string; vertical: string }, geom: Partial<{ x: number; y: number; width: number; height: number }> = {}) {
+function child(
+  constraints: { horizontal: string; vertical: string },
+  geom: Partial<{ x: number; y: number; width: number; height: number }> = {},
+) {
   return SceneNodeSchema.parse({
     id: 'c',
     name: 'child',

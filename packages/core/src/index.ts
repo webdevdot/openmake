@@ -7,6 +7,8 @@ export {
   multiply,
   invert,
   applyMatrix,
+  regularPolygonPoints,
+  starPoints,
   IDENTITY,
   type Bounds,
   type Mat2x3,
