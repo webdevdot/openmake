@@ -8,6 +8,12 @@ import { ToolsPanel } from './ToolsPanel.js';
 import { VariablesPanel } from './VariablesPanel.js';
 import { IconRail, type RailSection } from './IconRail.js';
 
+/**
+ * Wide surface for the Variables full-view (Figma parity): collections
+ * sub-column + per-mode table need far more room than the standard left rail.
+ */
+const VARIABLES_PANEL_WIDTH = 'w-[720px]';
+
 export interface LeftPanelProps {
   doc: OpenDoc;
   fileId: string;
@@ -50,7 +56,11 @@ export function LeftPanel({
       {section === 'tools' && (
         <ToolsPanel doc={doc} onExportPNG={onExportPNG} onExportSVG={onExportSVG} />
       )}
-      {section === 'variables' && <VariablesPanel doc={doc} />}
+      {section === 'variables' && (
+        <div className={`flex ${VARIABLES_PANEL_WIDTH} shrink-0 flex-col border-r bg-panel border-app`}>
+          <VariablesPanel doc={doc} />
+        </div>
+      )}
     </div>
   );
 }

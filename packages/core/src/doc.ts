@@ -8,6 +8,7 @@ import {
   VariableCollectionSchema,
   VariableSchema,
   createId,
+  isVariableAlias,
   type AssetRef,
   type DocumentData,
   type NodeType,
@@ -16,6 +17,7 @@ import {
   type Variable,
   type VariableCollection,
   type VariableType,
+  type VariableValue,
 } from '@openmake/shared';
 import { applyMatrix, getWorldBounds, getWorldMatrix, invert } from './geometry.js';
 import { parseVariantName } from './variants.js';
@@ -38,17 +40,19 @@ function defaultVariableValue(type: VariableType): string | number | boolean {
 }
 
 /**
- * Free-function form of {@link OpenDoc.resolveVariableValue}, matching the
- * pinned resolver signature `resolveVariableValue(doc, variableId, modeId?)`.
- * Returns the value for the active mode (or the collection default), or
- * `undefined` when unresolved.
+ * Free-function form of {@link OpenDoc.resolveVariableValue}. The second
+ * argument is either a single `modeId` (legacy same-collection call shape) or a
+ * `modesByCollection` map (`collectionId → modeId`) used to resolve alias chains
+ * across collections in their respective active modes. Returns the resolved
+ * scalar (aliases followed), or `undefined` when unresolved (missing variable,
+ * dangling alias target, or a cycle).
  */
 export function resolveVariableValue(
   doc: OpenDoc,
   variableId: string,
-  modeId?: string,
+  modeOrModes?: string | Record<string, string>,
 ): string | number | boolean | undefined {
-  return doc.resolveVariableValue(variableId, modeId);
+  return doc.resolveVariableValue(variableId, modeOrModes);
 }
 
 const DEFAULT_NAMES: Record<NodeType, string> = {
@@ -737,10 +741,10 @@ export class OpenDoc {
     return id;
   }
 
-  /** Patch a variable's name and/or per-mode values. */
+  /** Patch a variable's name and/or per-mode values (scalars or aliases). */
   updateVariable(
     id: string,
-    patch: { name?: string; valuesByMode?: Record<string, string | number | boolean> },
+    patch: { name?: string; valuesByMode?: Record<string, VariableValue> },
   ): void {
     const current = this.variablesMap.get(id);
     if (!current) throw new Error(`Variable "${id}" does not exist`);
@@ -768,23 +772,113 @@ export class OpenDoc {
   }
 
   /**
-   * Resolve a variable's value for a mode. When `modeId` is omitted (or the
-   * variable has no value for it), falls back to the owning collection's
-   * `defaultModeId`. Returns `undefined` if the variable, collection, or value
-   * is missing.
+   * Resolve a variable's value, following alias chains.
+   *
+   * The second argument selects the mode to read for each variable visited:
+   *   - a single `modeId` string — legacy same-collection call shape: used for
+   *     the requested variable's own collection (aliases into other collections
+   *     then fall back to those collections' default modes).
+   *   - a `modesByCollection` map (`collectionId → modeId`) — each variable in
+   *     the chain is read in its collection's selected mode from the map, else
+   *     that collection's `defaultModeId`. This is what the editor threads so
+   *     aliases resolve against the active modes of *every* collection.
+   *
+   * If the selected mode has no value the collection default is used. When the
+   * resolved value is an alias, the target is resolved in the SAME context.
+   * Returns `undefined` for a missing variable/collection, a dangling alias
+   * target, or a cycle (guarded by a visited set).
    */
   resolveVariableValue(
     variableId: string,
-    modeId?: string,
+    modeOrModes?: string | Record<string, string>,
   ): string | number | boolean | undefined {
-    const variable = this.variablesMap.get(variableId);
-    if (!variable) return undefined;
-    if (modeId !== undefined && modeId in variable.valuesByMode) {
-      return variable.valuesByMode[modeId];
+    const isMap = typeof modeOrModes === 'object' && modeOrModes !== null;
+    const modesByCollection = isMap ? (modeOrModes as Record<string, string>) : undefined;
+    const explicitModeId = typeof modeOrModes === 'string' ? modeOrModes : undefined;
+
+    const visited = new Set<string>();
+    let current: string = variableId;
+    let useExplicit = explicitModeId !== undefined;
+    // Bound iterations by the number of variables to also guard non-self cycles
+    // defensively; the visited set is the primary guard.
+    for (;;) {
+      if (visited.has(current)) return undefined;
+      visited.add(current);
+
+      const variable = this.variablesMap.get(current);
+      if (!variable) return undefined;
+      const collection = this.variableCollectionsMap.get(variable.collectionId);
+      if (!collection) return undefined;
+
+      // Pick the mode to read for this variable.
+      let modeId: string;
+      if (useExplicit && explicitModeId !== undefined && explicitModeId in variable.valuesByMode) {
+        modeId = explicitModeId;
+      } else {
+        const fromMap = modesByCollection?.[variable.collectionId];
+        modeId =
+          fromMap !== undefined && fromMap in variable.valuesByMode
+            ? fromMap
+            : collection.defaultModeId;
+      }
+      // The explicit modeId only applies to the first variable in the chain.
+      useExplicit = false;
+
+      const value: VariableValue | undefined = variable.valuesByMode[modeId];
+      if (value === undefined) return undefined;
+      if (isVariableAlias(value)) {
+        current = value.alias;
+        continue;
+      }
+      return value;
     }
-    const collection = this.variableCollectionsMap.get(variable.collectionId);
-    if (!collection) return undefined;
-    return variable.valuesByMode[collection.defaultModeId];
+  }
+
+  /**
+   * Set a per-mode value of `variableId` to an alias pointing at
+   * `targetVariableId`. Rejects self-alias and any alias that would create a
+   * resolution cycle (see {@link OpenDoc.wouldCreateAliasCycle}). Clear an alias
+   * by writing a scalar via {@link OpenDoc.updateVariable}.
+   */
+  setVariableAlias(variableId: string, modeId: string, targetVariableId: string): void {
+    const current = this.variablesMap.get(variableId);
+    if (!current) throw new Error(`Variable "${variableId}" does not exist`);
+    if (!this.variablesMap.get(targetVariableId)) {
+      throw new Error(`Variable "${targetVariableId}" does not exist`);
+    }
+    if (this.wouldCreateAliasCycle(variableId, modeId, targetVariableId)) {
+      throw new Error('Alias would create a cycle');
+    }
+    const next = VariableSchema.parse({
+      ...current,
+      valuesByMode: { ...current.valuesByMode, [modeId]: { alias: targetVariableId } },
+    });
+    this.transact(() => this.variablesMap.set(variableId, next));
+  }
+
+  /**
+   * Would aliasing `variableId`'s `modeId` value to `targetVariableId` create a
+   * resolution cycle? True for a direct self-alias, or when following the
+   * target's alias chain (in `modeId` then collection defaults) leads back to
+   * `variableId`. Cheap graph walk with a visited set — used by the UI to filter
+   * alias-picker candidates.
+   */
+  wouldCreateAliasCycle(variableId: string, modeId: string, targetVariableId: string): boolean {
+    if (targetVariableId === variableId) return true;
+    const visited = new Set<string>([variableId]);
+    let current: string | undefined = targetVariableId;
+    while (current !== undefined) {
+      if (visited.has(current)) return true;
+      visited.add(current);
+      const variable = this.variablesMap.get(current);
+      if (!variable) return false; // dangling target: no cycle
+      const collection = this.variableCollectionsMap.get(variable.collectionId);
+      const readMode =
+        modeId in variable.valuesByMode ? modeId : collection?.defaultModeId ?? modeId;
+      const value: VariableValue | undefined = variable.valuesByMode[readMode];
+      current = value !== undefined && isVariableAlias(value) ? value.alias : undefined;
+    }
+    return false;
   }
 
   setStyle(style: Style): void {

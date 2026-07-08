@@ -4,6 +4,7 @@ import {
   SolidPaintSchema,
   VariableCollectionSchema,
   VariableSchema,
+  isVariableAlias,
 } from '../src/document.js';
 
 describe('Variable schemas', () => {
@@ -29,6 +30,49 @@ describe('Variable schemas', () => {
     });
     expect(v.valuesByMode.a).toBe(4);
     expect(v.valuesByMode.c).toBe(true);
+  });
+
+  it('accepts an alias object as a per-mode value', () => {
+    const v = VariableSchema.parse({
+      id: 'v',
+      collectionId: 'c',
+      name: 'aliased',
+      type: 'COLOR',
+      valuesByMode: { light: '#ffffff', dark: { alias: 'other_var' } },
+    });
+    expect(v.valuesByMode.light).toBe('#ffffff');
+    expect(isVariableAlias(v.valuesByMode.dark)).toBe(true);
+    expect(v.valuesByMode.dark).toEqual({ alias: 'other_var' });
+  });
+
+  it('rejects an alias object with extra keys or a non-string alias', () => {
+    expect(() =>
+      VariableSchema.parse({
+        id: 'v',
+        collectionId: 'c',
+        name: 'x',
+        type: 'COLOR',
+        valuesByMode: { m: { alias: 'a', extra: 1 } },
+      }),
+    ).toThrow();
+    expect(() =>
+      VariableSchema.parse({
+        id: 'v',
+        collectionId: 'c',
+        name: 'x',
+        type: 'COLOR',
+        valuesByMode: { m: { alias: 42 } },
+      }),
+    ).toThrow();
+  });
+
+  it('isVariableAlias narrows only the alias object form', () => {
+    expect(isVariableAlias({ alias: 'x' })).toBe(true);
+    expect(isVariableAlias('#fff')).toBe(false);
+    expect(isVariableAlias(4)).toBe(false);
+    expect(isVariableAlias(true)).toBe(false);
+    expect(isVariableAlias(null)).toBe(false);
+    expect(isVariableAlias({ notAlias: 'x' })).toBe(false);
   });
 
   it('rejects an invalid variable type', () => {
