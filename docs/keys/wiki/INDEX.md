@@ -22,3 +22,4 @@
 - [2026-07-06 .fig import + UI3 chrome finish](../tasks/2026-07-06-fig-import-and-ui3-chrome.md) — FEATURE flow (absorbs figma-chrome-rebuild)
 - [2026-07-08 Figma-parity gaps: toolbar tools, auto-layout panel, align/flip](../tasks/2026-07-08-figma-parity-gaps.md) — FEATURE ×3 via ultracode workflow (Opus agents); variants UI still open
 - [2026-07-08 Motion core v1 + variants/instance UI v1](../tasks/2026-07-08-motion-and-variants.md) — FEATURE ×2 via ultracode (Opus agents); timeline panel + code export unblocked as follow-ups
+- [2026-07-08 Motion timeline panel + animation→code export](../tasks/2026-07-08-timeline-and-export.md) — FEATURE ×2 via ultracode (Opus agents); Figma Motion parity v1 complete
