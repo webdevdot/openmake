@@ -1,5 +1,15 @@
 import { api } from './client.js';
-import type { AuthResponse, FileMeta, Org, Project, User } from './types.js';
+import type {
+  Agent,
+  AuthResponse,
+  FileMeta,
+  Org,
+  Project,
+  Skill,
+  User,
+  Workflow,
+  WorkflowRunResult,
+} from './types.js';
 
 // The server wraps resource responses in envelopes ({ orgs }, { file }, …);
 // auth register/login are flat. Unwrap here so the rest of the app sees bare values.
@@ -31,4 +41,24 @@ export const filesApi = {
   import: (projectId: string, body: { name: string; document: unknown }) =>
     api.post<{ file: FileMeta }>(`/projects/${projectId}/files/import`, body).then((r) => r.file),
   get: (fileId: string) => api.get<{ file: FileMeta }>(`/files/${fileId}`).then((r) => r.file),
+};
+
+// The editor only knows the fileId; the AI endpoints are org-scoped. Resolve the
+// org by walking file -> project -> orgId through the existing enveloped routes.
+export const projectDetailApi = {
+  get: (projectId: string) =>
+    api.get<{ project: Project }>(`/projects/${projectId}`).then((r) => r.project),
+};
+
+export const aiApi = {
+  skills: (orgId: string) =>
+    api.get<{ skills: Skill[] }>(`/orgs/${orgId}/skills`).then((r) => r.skills),
+  agents: (orgId: string) =>
+    api.get<{ agents: Agent[] }>(`/orgs/${orgId}/agents`).then((r) => r.agents),
+  workflows: (orgId: string) =>
+    api.get<{ workflows: Workflow[] }>(`/orgs/${orgId}/workflows`).then((r) => r.workflows),
+  runWorkflow: (
+    workflowId: string,
+    body: { fileId: string; nodeId: string; request: string; framework?: string },
+  ) => api.post<WorkflowRunResult>(`/ai/workflows/${workflowId}/run`, body),
 };

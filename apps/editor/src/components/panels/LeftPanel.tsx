@@ -2,15 +2,17 @@ import { useState } from 'react';
 import type { OpenDoc } from '@openmake/core';
 import { PagesList } from './PagesList.js';
 import { LayersTree } from './LayersTree.js';
+import { AgentsPanel } from './AgentsPanel.js';
 import { IconRail, type RailSection } from './IconRail.js';
 
 export interface LeftPanelProps {
   doc: OpenDoc;
+  fileId: string;
   activePageId: string;
   onSelectPage: (id: string) => void;
 }
 
-export function LeftPanel({ doc, activePageId, onSelectPage }: LeftPanelProps) {
+export function LeftPanel({ doc, fileId, activePageId, onSelectPage }: LeftPanelProps) {
   const [section, setSection] = useState<RailSection>('file');
 
   return (
@@ -20,6 +22,11 @@ export function LeftPanel({ doc, activePageId, onSelectPage }: LeftPanelProps) {
         <div className="flex w-panel-left shrink-0 flex-col border-r bg-panel border-app">
           <PagesList doc={doc} activePageId={activePageId} onSelectPage={onSelectPage} />
           <LayersTree doc={doc} pageId={activePageId} />
+        </div>
+      )}
+      {section === 'agents' && (
+        <div className="flex w-panel-left shrink-0 flex-col border-r bg-panel border-app">
+          <AgentsPanel doc={doc} fileId={fileId} />
         </div>
       )}
     </div>
