@@ -10,6 +10,7 @@ import type { Config } from './config.js';
 import { registerErrorHandler } from './plugins/error-handler.js';
 import { registerAuthPlugin } from './plugins/auth.js';
 import { PgDocPersistence } from './adapters/pg-doc-persistence.js';
+import { MinioAssetStore, type AssetStore } from './services/asset-store.js';
 import { authRoutes } from './routes/auth.js';
 import { orgRoutes } from './routes/orgs.js';
 import { projectRoutes } from './routes/projects.js';
@@ -31,12 +32,15 @@ declare module 'fastify' {
     config: Config;
     db: Database;
     docSyncHub: DocSyncHub;
+    assetStore: AssetStore;
   }
 }
 
 export interface BuildAppOptions {
   db?: Database;
   logger?: boolean;
+  /** Injectable object store — tests pass an in-memory fake; prod uses MinIO. */
+  assetStore?: AssetStore;
 }
 
 /** Builds a fully-wired, injectable Fastify instance. Does not call listen(). */
@@ -50,13 +54,26 @@ export async function buildApp(
 
   const db = opts.db ?? new Database(createPrismaClient(config.databaseUrl));
   const docSyncHub = new DocSyncHub(new PgDocPersistence(db));
+  const assetStore = opts.assetStore ?? new MinioAssetStore(config.s3);
 
   app.decorate('config', config);
   app.decorate('db', db);
   app.decorate('docSyncHub', docSyncHub);
+  app.decorate('assetStore', assetStore);
 
   app.addHook('onClose', async () => {
     await docSyncHub.destroy();
+  });
+
+  // Create-if-missing the asset bucket on startup. A store that can't reach its
+  // backend shouldn't crash the whole server — the asset routes surface the
+  // failure per-request — so log and continue.
+  app.addHook('onReady', async () => {
+    try {
+      await assetStore.ensureBucket();
+    } catch (err) {
+      app.log.warn({ err }, 'asset store: failed to ensure bucket on startup');
+    }
   });
 
   // Tolerate empty JSON bodies (POST /auth/refresh, /auth/logout send none);
@@ -72,6 +89,16 @@ export async function buildApp(
       done(err as Error, undefined);
     }
   });
+
+  // Raw-bytes parser for image asset uploads (PUT /files/:fileId/assets/:hash).
+  // The per-route bodyLimit caps the size; here we just hand the route the Buffer.
+  app.addContentTypeParser(
+    ['image/png', 'image/jpeg'],
+    { parseAs: 'buffer' },
+    (_req, body, done) => {
+      done(null, body);
+    },
+  );
 
   await app.register(helmet);
   await app.register(cors, {

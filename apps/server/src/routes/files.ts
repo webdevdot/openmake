@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto';
 import { z } from 'zod';
 import * as Y from 'yjs';
 import { OpenDoc } from '@openmake/core';
@@ -31,6 +32,17 @@ export const MAX_IMPORT_ENTRIES = 60_000;
 export const MAX_IMPORT_BODY_BYTES = 10 * 1024 * 1024;
 
 /**
+ * Body limit for PUT /files/:fileId/assets/:hash. Image pixels are streamed
+ * straight to object storage (no synchronous hydration), but a hard cap keeps
+ * a single upload from buffering an unbounded blob in memory. Mirrors the
+ * 10 MiB precedent set by MAX_IMPORT_BODY_BYTES.
+ */
+export const MAX_ASSET_BODY_BYTES = 10 * 1024 * 1024;
+
+/** Content-types accepted for image asset uploads. */
+const ASSET_CONTENT_TYPES = new Set(['image/png', 'image/jpeg']);
+
+/**
  * Per-IP rate limit for the import route. Import is the most expensive
  * synchronous endpoint on the server; the global 200/min limit alone would
  * allow one client to keep the shared event loop saturated cross-tenant.
@@ -39,6 +51,11 @@ export const IMPORT_RATE_LIMIT_PER_MINUTE = 10;
 
 const ProjectIdParamsSchema = z.object({ projectId: z.string().min(1) });
 const FileIdParamsSchema = z.object({ fileId: z.string().min(1) });
+// Assets are content-addressed by a lowercase hex SHA-256 digest.
+const AssetParamsSchema = z.object({
+  fileId: z.string().min(1),
+  hash: z.string().regex(/^[0-9a-f]{64}$/, 'hash must be a lowercase hex SHA-256 digest'),
+});
 // `?deleted=1` (or `true`) switches the list route into "Trash" mode. Anything
 // else lists live files, so an accidental `?deleted=0` behaves like the default.
 const ListFilesQuerySchema = z.object({ deleted: z.enum(['1', 'true']).optional() });
@@ -282,6 +299,62 @@ export async function fileRoutes(app: FastifyInstance): Promise<void> {
       const mergedState = Y.encodeStateAsUpdate(ydoc);
       reply.type('application/octet-stream');
       return Buffer.from(mergedState);
+    },
+  );
+
+  // Upload the raw pixels for a content-addressed image asset. EDITOR+.
+  // The client hashes the bytes into `:hash`; we re-hash server-side and reject
+  // a mismatch so a corrupt or spoofed body can never be stored under a hash it
+  // doesn't own. Idempotent: re-uploading an already-stored hash is a 200 no-op.
+  app.put(
+    '/files/:fileId/assets/:hash',
+    {
+      preHandler: [app.authenticate, requireOrgRole('EDITOR', resolveOrgIdFromFileParam)],
+      bodyLimit: MAX_ASSET_BODY_BYTES,
+    },
+    async (request, reply) => {
+      const { hash } = parseOrThrow(AssetParamsSchema, request.params);
+
+      const contentType = (request.headers['content-type'] ?? '').split(';')[0]!.trim().toLowerCase();
+      if (!ASSET_CONTENT_TYPES.has(contentType)) {
+        throw new HttpError(400, 'INVALID_CONTENT_TYPE', 'Asset must be image/png or image/jpeg');
+      }
+
+      const body = request.body;
+      if (!Buffer.isBuffer(body) || body.length === 0) {
+        throw new HttpError(400, 'INVALID_BODY', 'Asset body must be non-empty binary data');
+      }
+
+      // Integrity: the stored key IS the hash, so a body that doesn't hash to it
+      // must never be written — otherwise a GET would serve bytes that lie about
+      // their own content address.
+      const actualHash = createHash('sha256').update(body).digest('hex');
+      if (actualHash !== hash) {
+        throw new HttpError(400, 'HASH_MISMATCH', 'Asset content does not match the provided hash');
+      }
+
+      // requireOrgRole set request.orgId; tenancy is baked into the object key.
+      const key = `${request.orgId!}/${hash}`;
+      const already = await app.assetStore.has(key);
+      if (!already) {
+        await app.assetStore.put(key, body, contentType);
+      }
+      reply.status(200);
+      return { hash, size: body.length, deduplicated: already };
+    },
+  );
+
+  // Stream an image asset's bytes back. VIEWER+.
+  app.get(
+    '/files/:fileId/assets/:hash',
+    { preHandler: [app.authenticate, requireOrgRole('VIEWER', resolveOrgIdFromFileParam)] },
+    async (request, reply) => {
+      const { hash } = parseOrThrow(AssetParamsSchema, request.params);
+      const key = `${request.orgId!}/${hash}`;
+      const asset = await app.assetStore.get(key);
+      if (!asset) throw new HttpError(404, 'NOT_FOUND', 'Asset not found');
+      reply.type(asset.contentType);
+      return asset.bytes;
     },
   );
 }

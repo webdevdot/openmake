@@ -1,4 +1,5 @@
 import type { AssetRef } from '@openmake/shared';
+import type { OpenDoc } from '@openmake/core';
 
 /**
  * Pure helpers for placing a picked image into the document as an IMAGE-filled
@@ -37,4 +38,29 @@ export function centeredTopLeft(
   size: { width: number; height: number },
 ): { x: number; y: number } {
   return { x: center.x - size.width / 2, y: center.y - size.height / 2 };
+}
+
+/**
+ * Collect every assetId referenced by an IMAGE paint on any node in `pageId`'s
+ * subtree. Used to decide which image bytes a freshly-loaded doc still needs to
+ * fetch from the asset server. Pure + deterministic so it can be unit-tested
+ * against a real OpenDoc without a browser.
+ */
+export function collectPageImageAssetIds(doc: OpenDoc, pageId: string): Set<string> {
+  const assetIds = new Set<string>();
+  const walk = (nodeId: string): void => {
+    const node = doc.getNode(nodeId);
+    if (!node) return;
+    const fills = (node as { fills?: ReadonlyArray<{ type: string; assetId?: string }> }).fills;
+    if (Array.isArray(fills)) {
+      for (const fill of fills) {
+        if (fill.type === 'IMAGE' && typeof fill.assetId === 'string') {
+          assetIds.add(fill.assetId);
+        }
+      }
+    }
+    for (const childId of doc.getChildrenIds(nodeId)) walk(childId);
+  };
+  walk(pageId);
+  return assetIds;
 }

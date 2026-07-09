@@ -149,9 +149,55 @@ export async function apiRequestBinary(
   return new Uint8Array(await res.arrayBuffer());
 }
 
+/**
+ * PUT a raw binary payload (e.g. image asset bytes) with an explicit
+ * content-type. Shares the auth-header + single-refresh-retry behavior of
+ * {@link apiRequest} but sends the bytes verbatim instead of JSON-encoding them.
+ */
+export async function apiRequestBinaryPut(
+  path: string,
+  body: Uint8Array,
+  contentType: string,
+  opts: RequestOptions = {},
+): Promise<void> {
+  const token = getAccessToken();
+  const headers = new Headers(opts.headers);
+  headers.set('Content-Type', contentType);
+  if (token) headers.set('Authorization', `Bearer ${token}`);
+
+  const res = await fetch(`${API_BASE}${path}`, {
+    method: 'PUT',
+    headers,
+    credentials: 'include',
+    // A fresh view over the exact bytes — avoids ArrayBuffer/SharedArrayBuffer typing quirks.
+    body: new Uint8Array(body),
+  });
+
+  if (res.status === 401 && !opts._isRetry) {
+    const newToken = await refreshAccessToken();
+    if (newToken) {
+      setAccessToken(newToken);
+      return apiRequestBinaryPut(path, body, contentType, { ...opts, _isRetry: true });
+    }
+    onLogout();
+    throw new ApiError(401, 'UNAUTHENTICATED', 'Session expired');
+  }
+
+  if (!res.ok) {
+    const errBody = (await parseBody(res)) as Partial<ApiErrorBody> | undefined;
+    throw new ApiError(
+      res.status,
+      errBody?.error?.code ?? 'UNKNOWN_ERROR',
+      errBody?.error?.message ?? `Request failed with status ${res.status}`,
+    );
+  }
+}
+
 export const api = {
   get: <T>(path: string) => apiRequest<T>(path, { method: 'GET' }),
   getBinary: (path: string) => apiRequestBinary(path),
+  putBinary: (path: string, body: Uint8Array, contentType: string) =>
+    apiRequestBinaryPut(path, body, contentType),
   post: <T>(path: string, body?: unknown) => apiRequest<T>(path, { method: 'POST', body }),
   patch: <T>(path: string, body?: unknown) => apiRequest<T>(path, { method: 'PATCH', body }),
   delete: <T>(path: string) => apiRequest<T>(path, { method: 'DELETE' }),

@@ -16,7 +16,21 @@ const EnvSchema = z.object({
   CORS_ORIGINS: z.string().optional().default(''),
   SERVER_PORT: z.coerce.number().int().positive().optional().default(8080),
   NODE_ENV: z.string().optional().default('development'),
+  // MinIO / S3 for large binary assets (image pixels). Defaults mirror
+  // docker-compose + .env.example so a stock local stack works out of the box;
+  // the object store credentials are the MinIO root user/password.
+  S3_ENDPOINT: z.string().optional().default('http://localhost:9000'),
+  S3_BUCKET: z.string().optional().default('openmake-assets'),
+  MINIO_ROOT_USER: z.string().optional().default('openmake'),
+  MINIO_ROOT_PASSWORD: z.string().optional().default('change-me-too'),
 });
+
+export interface S3Config {
+  endpoint: string;
+  accessKey: string;
+  secretKey: string;
+  bucket: string;
+}
 
 export interface Config {
   databaseUrl: string;
@@ -26,6 +40,7 @@ export interface Config {
   corsOrigins: string[];
   port: number;
   isProd: boolean;
+  s3: S3Config;
 }
 
 /** Parses and validates process.env into a typed Config, failing fast on missing secrets. */
@@ -48,5 +63,11 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
       .filter((origin) => origin.length > 0),
     port: data.SERVER_PORT,
     isProd: data.NODE_ENV === 'production',
+    s3: {
+      endpoint: data.S3_ENDPOINT,
+      accessKey: data.MINIO_ROOT_USER,
+      secretKey: data.MINIO_ROOT_PASSWORD,
+      bucket: data.S3_BUCKET,
+    },
   };
 }

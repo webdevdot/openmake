@@ -1,6 +1,7 @@
 import { useCallback } from 'react';
 import type { OpenDoc } from '@openmake/core';
 import { useImageStore } from '../store/images.js';
+import { filesApi } from '../api/endpoints.js';
 import { hashBytes, makeAssetRef, centeredTopLeft } from '../canvas/image-placement.js';
 
 const ACCEPT = 'image/png,image/jpeg';
@@ -47,16 +48,23 @@ function pickImageFile(): Promise<{ bytes: Uint8Array; mime: string } | null> {
  * Client-side image placement: pick a png/jpeg, content-hash it into an
  * assetId, register the AssetRef on the doc and the raw bytes in the local
  * image cache, then create an IMAGE-filled node at natural size centered on
- * `worldCenter`. No server upload — the pixels stay in the editor-local cache.
+ * `worldCenter`.
+ *
+ * The pixels are also uploaded to the asset server in the background so a reload
+ * (or a teammate) can fetch them — but that upload is optimistic: node creation
+ * never blocks on it and a failed upload only logs (the local render already
+ * works, and the content-addressed retry is idempotent next time).
  *
  * Returns the created node id, or null if the picker was cancelled.
  */
 export function useCreateImage({
   doc,
   pageId,
+  fileId,
 }: {
   doc: OpenDoc;
   pageId: string;
+  fileId: string;
 }): (worldCenter: { x: number; y: number }) => Promise<string | null> {
   return useCallback(
     async (worldCenter) => {
@@ -67,6 +75,15 @@ export function useCreateImage({
       const natural = await decodeNaturalSize(bytes, mime);
       doc.setAsset(assetId, makeAssetRef(assetId, mime, natural));
       useImageStore.getState().setImage(assetId, bytes);
+
+      // Fire-and-forget: persist the pixels server-side without blocking the
+      // node from appearing. Errors are swallowed (logged) by design.
+      if (fileId) {
+        void filesApi.uploadAsset(fileId, assetId, bytes, mime).catch((err: unknown) => {
+          console.warn('image asset upload failed (will retry on next use)', err);
+        });
+      }
+
       const { x, y } = centeredTopLeft(worldCenter, natural);
       const id = doc.createNode({
         type: 'RECTANGLE',
@@ -80,6 +97,6 @@ export function useCreateImage({
       doc.commitUndoGroup();
       return id;
     },
-    [doc, pageId],
+    [doc, pageId, fileId],
   );
 }

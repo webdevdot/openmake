@@ -2,6 +2,7 @@ import type { FastifyInstance } from 'fastify';
 import { Database, createPrismaClient } from '@openmake/database';
 import { buildApp } from '../app.js';
 import type { Config } from '../config.js';
+import { InMemoryAssetStore } from '../services/asset-store.js';
 import { setupTestDatabase, TEST_DATABASE_URL } from './db-setup.js';
 
 const TEST_JWT_SECRET = 'test-jwt-secret-for-openmake-server-tests-only';
@@ -23,6 +24,12 @@ function testConfig(): Config {
     corsOrigins: ['http://localhost:3000'],
     port: 0,
     isProd: false,
+    s3: {
+      endpoint: 'http://localhost:9000',
+      accessKey: 'test',
+      secretKey: 'test',
+      bucket: 'openmake-test',
+    },
   };
 }
 
@@ -31,7 +38,12 @@ export async function buildTestApp(): Promise<TestApp> {
   await setupTestDatabase();
   const config = testConfig();
   const db = new Database(createPrismaClient(config.databaseUrl));
-  const app = await buildApp(config, { db, logger: false });
+  const app = await buildApp(config, {
+    db,
+    logger: false,
+    // Never touch a real object store from the test suite.
+    assetStore: new InMemoryAssetStore(),
+  });
   await app.ready();
 
   return {
