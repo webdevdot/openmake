@@ -104,6 +104,11 @@ export async function buildApp(
   await app.register(cors, {
     origin: config.corsOrigins.length > 0 ? config.corsOrigins : false,
     credentials: true,
+    // @fastify/cors defaults `methods` to 'GET,HEAD,POST' — which silently
+    // blocks the cross-origin preflight for every PUT/PATCH/DELETE route the
+    // editor calls (file rename/delete, org/project/member updates, and the
+    // image-asset upload). Enumerate the methods the API actually serves.
+    methods: ['GET', 'HEAD', 'PUT', 'PATCH', 'POST', 'DELETE'],
   });
   await app.register(cookie);
   await app.register(rateLimit, { max: 200, timeWindow: '1 minute' });
