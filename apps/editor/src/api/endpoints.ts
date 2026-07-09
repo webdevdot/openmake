@@ -49,6 +49,12 @@ export const filesApi = {
   restore: (fileId: string) =>
     api.post<{ file: FileMeta }>(`/files/${fileId}/restore`).then((r) => r.file),
   snapshot: (fileId: string) => api.getBinary(`/files/${fileId}/snapshot`),
+  // Content-addressed image assets. Upload is a raw binary PUT keyed by the
+  // client-computed SHA-256 hash; the server re-verifies it before storing.
+  uploadAsset: (fileId: string, hash: string, bytes: Uint8Array, mime: string) =>
+    api.putBinary(`/files/${fileId}/assets/${hash}`, bytes, mime),
+  fetchAsset: (fileId: string, hash: string) =>
+    api.getBinary(`/files/${fileId}/assets/${hash}`),
 };
 
 // The editor only knows the fileId; the AI endpoints are org-scoped. Resolve the

@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { apiRequest, configureApiClient } from './client.js';
+import { apiRequest, apiRequestBinaryPut, configureApiClient } from './client.js';
 
 function jsonResponse(status: number, body: unknown): Response {
   return new Response(JSON.stringify(body), {
@@ -94,5 +94,67 @@ describe('apiRequest', () => {
         ),
     );
     await expect(apiRequest('/thing')).rejects.toMatchObject({ code: 'NOT_FOUND', status: 404 });
+  });
+});
+
+describe('apiRequestBinaryPut', () => {
+  beforeEach(() => {
+    let token: string | null = 'initial-token';
+    configureApiClient({
+      getAccessToken: () => token,
+      setAccessToken: (t) => {
+        token = t;
+      },
+      onLogout: vi.fn(),
+    });
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('PUTs raw bytes with the given content-type and bearer token', async () => {
+    const fetchMock = vi.fn().mockResolvedValueOnce(new Response(null, { status: 200 }));
+    vi.stubGlobal('fetch', fetchMock);
+
+    const bytes = new Uint8Array([1, 2, 3, 4]);
+    await apiRequestBinaryPut('/files/f1/assets/deadbeef', bytes, 'image/png');
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit];
+    expect(url).toContain('/files/f1/assets/deadbeef');
+    expect(init.method).toBe('PUT');
+    const headers = new Headers(init.headers);
+    expect(headers.get('Content-Type')).toBe('image/png');
+    expect(headers.get('Authorization')).toBe('Bearer initial-token');
+    expect(init.body).toBeInstanceOf(Uint8Array);
+  });
+
+  it('refreshes the token once on a 401 and retries the upload', async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(
+        jsonResponse(401, { error: { code: 'UNAUTHENTICATED', message: 'expired' } }),
+      ) // original PUT
+      .mockResolvedValueOnce(jsonResponse(200, { accessToken: 'new-token' })) // refresh
+      .mockResolvedValueOnce(new Response(null, { status: 200 })); // retried PUT
+    vi.stubGlobal('fetch', fetchMock);
+
+    await apiRequestBinaryPut('/files/f1/assets/abc', new Uint8Array([9]), 'image/jpeg');
+    expect(fetchMock).toHaveBeenCalledTimes(3);
+  });
+
+  it('throws an ApiError on a non-401 failure', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi
+        .fn()
+        .mockResolvedValueOnce(
+          jsonResponse(400, { error: { code: 'HASH_MISMATCH', message: 'nope' } }),
+        ),
+    );
+    await expect(
+      apiRequestBinaryPut('/files/f1/assets/abc', new Uint8Array([1]), 'image/png'),
+    ).rejects.toMatchObject({ code: 'HASH_MISMATCH', status: 400 });
   });
 });

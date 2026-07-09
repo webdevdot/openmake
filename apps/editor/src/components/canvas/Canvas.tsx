@@ -14,6 +14,7 @@ import { loadEditorFonts } from '../../canvas/fonts.js';
 import { normalizeRect, marqueeHits, type Rect } from '../../canvas/marquee.js';
 import { useCreateShapeGesture } from '../../hooks/useCreateShapeGesture.js';
 import { useCreateImage } from '../../hooks/useCreateImage.js';
+import { useAssetSync } from '../../hooks/useAssetSync.js';
 import { useSelectGesture } from '../../hooks/useSelectGesture.js';
 import { OverlayLayer } from './OverlayLayer.js';
 import { TextEditorOverlay } from './TextEditorOverlay.js';
@@ -21,10 +22,11 @@ import { TextEditorOverlay } from './TextEditorOverlay.js';
 export interface CanvasProps {
   doc: OpenDoc;
   pageId: string;
+  fileId: string;
   onCursorMoveWorld?: (world: { x: number; y: number }) => void;
 }
 
-export function Canvas({ doc, pageId, onCursorMoveWorld }: CanvasProps) {
+export function Canvas({ doc, pageId, fileId, onCursorMoveWorld }: CanvasProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const rendererRef = useRef<Renderer | null>(null);
@@ -51,7 +53,11 @@ export function Canvas({ doc, pageId, onCursorMoveWorld }: CanvasProps) {
     onCreated: () => setTool('select'),
   });
   const selectGesture = useSelectGesture({ doc, pageId, cameraRef });
-  const createImage = useCreateImage({ doc, pageId });
+  const createImage = useCreateImage({ doc, pageId, fileId });
+
+  // Lazily fetch pixels for any image referenced on this page but not yet cached
+  // (fresh load, or a teammate's image arriving over collab).
+  useAssetSync({ doc, pageId, fileId });
 
   // --- Setup: renderer + fonts + rAF loop ------------------------------------
   useEffect(() => {

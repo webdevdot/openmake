@@ -40,7 +40,7 @@ describe('Canvas', () => {
     const doc = OpenDoc.create();
     const pageId = doc.getPages()[0]!;
 
-    render(<Canvas doc={doc} pageId={pageId} />);
+    render(<Canvas doc={doc} pageId={pageId} fileId="file-1" />);
 
     expect(screen.getByTestId('canvas-container')).toBeTruthy();
     expect(screen.getByTestId('canvas-surface')).toBeTruthy();

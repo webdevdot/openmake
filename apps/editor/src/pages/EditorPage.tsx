@@ -181,9 +181,14 @@ export function EditorPage() {
   const canvasEl = useMemo(() => {
     if (!session || !activePageId) return null;
     return (
-      <Canvas doc={session.doc} pageId={activePageId} onCursorMoveWorld={onPointerMoveWorld} />
+      <Canvas
+        doc={session.doc}
+        pageId={activePageId}
+        fileId={fileId ?? ''}
+        onCursorMoveWorld={onPointerMoveWorld}
+      />
     );
-  }, [session, activePageId, onPointerMoveWorld]);
+  }, [session, activePageId, fileId, onPointerMoveWorld]);
 
   if (!session || !activePageId) {
     return (
