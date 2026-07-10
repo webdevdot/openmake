@@ -74,7 +74,7 @@ function ToolButton({
  * shape tools collapse into a single grouped slot that shows the last-used
  * shape with a chevron and opens a flyout to pick another. Keyboard shortcuts
  * still select every tool directly (see shortcuts.ts) even when a shape is
- * hidden inside the flyout. Comment is a visual-parity placeholder.
+ * hidden inside the flyout. Comment toggles the comment tool (drop-a-pin mode).
  */
 export function BottomToolbar() {
   const tool = useToolStore((s) => s.tool);
@@ -182,9 +182,13 @@ export function BottomToolbar() {
       <div className="mx-1 h-5 w-px bg-white/15" />
       <button
         type="button"
-        title="Comment"
-        disabled
-        className="flex h-8 w-9 items-center justify-center rounded-lg text-zinc-500"
+        title="Comment (C)"
+        aria-label="Comment"
+        data-testid="tool-comment"
+        aria-pressed={tool === 'comment'}
+        className="flex h-8 w-9 items-center justify-center rounded-lg text-zinc-100 hover:bg-white/10"
+        style={tool === 'comment' ? { backgroundColor: 'var(--color-accent)' } : undefined}
+        onClick={() => setTool('comment')}
       >
         <MessageCircle size={17} strokeWidth={1.75} />
       </button>

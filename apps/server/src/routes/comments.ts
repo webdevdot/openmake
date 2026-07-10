@@ -9,6 +9,9 @@ const CommentParamsSchema = z.object({ fileId: z.string().min(1), commentId: z.s
 const CreateCommentSchema = z.object({
   nodeId: z.string().optional(),
   body: z.string().min(1),
+  // World-space canvas pin coordinates for free-point (non-node) comments.
+  anchorX: z.number().optional(),
+  anchorY: z.number().optional(),
   parentId: z.string().optional(),
 });
 
@@ -50,6 +53,8 @@ export async function commentRoutes(app: FastifyInstance): Promise<void> {
         nodeId: body.nodeId,
         authorId: request.user!.id,
         body: body.body,
+        anchorX: body.anchorX,
+        anchorY: body.anchorY,
         parentId: body.parentId,
       });
       reply.status(201);

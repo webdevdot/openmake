@@ -11,7 +11,8 @@ export type ToolId =
   | 'image'
   | 'pen'
   | 'text'
-  | 'hand';
+  | 'hand'
+  | 'comment';
 
 interface ToolState {
   tool: ToolId;

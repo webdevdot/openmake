@@ -16,7 +16,9 @@ import { useCreateShapeGesture } from '../../hooks/useCreateShapeGesture.js';
 import { useCreateImage } from '../../hooks/useCreateImage.js';
 import { useSelectGesture } from '../../hooks/useSelectGesture.js';
 import { OverlayLayer } from './OverlayLayer.js';
+import { CommentsOverlay } from './CommentsOverlay.js';
 import { TextEditorOverlay } from './TextEditorOverlay.js';
+import { useCommentsStore } from '../../store/comments.js';
 
 export interface CanvasProps {
   doc: OpenDoc;
@@ -43,6 +45,8 @@ export function Canvas({ doc, pageId, onCursorMoveWorld }: CanvasProps) {
   const [spaceHeld, setSpaceHeld] = useState(false);
   const [textEditorNodeId, setTextEditorNodeId] = useState<string | null>(null);
   const pendingTextRef = useRef<{ x: number; y: number } | null>(null);
+  // Comment tool: world point of a pending pin, dropped on click completion.
+  const pendingCommentRef = useRef<{ x: number; y: number } | null>(null);
 
   const createShape = useCreateShapeGesture({
     doc,
@@ -245,6 +249,13 @@ export function Canvas({ doc, pageId, onCursorMoveWorld }: CanvasProps) {
       return;
     }
 
+    if (tool === 'comment') {
+      // Drop the pin on pointerUP so a click on empty canvas (not a drag) opens
+      // the composer; clicking an existing pin is handled by the overlay itself.
+      pendingCommentRef.current = screenToWorld(cameraRef.current, screen);
+      return;
+    }
+
     // frame / rectangle / ellipse / line: draw-by-drag with live preview.
     createShape.onPointerDown(e, screen);
   };
@@ -292,6 +303,11 @@ export function Canvas({ doc, pageId, onCursorMoveWorld }: CanvasProps) {
       setTextEditorNodeId(id);
       setTool('select');
       doc.commitUndoGroup();
+      return;
+    }
+    if (pendingCommentRef.current) {
+      useCommentsStore.getState().startDraft(pendingCommentRef.current);
+      pendingCommentRef.current = null;
       return;
     }
     if (tool === 'select') {
@@ -349,6 +365,7 @@ export function Canvas({ doc, pageId, onCursorMoveWorld }: CanvasProps) {
           getWorldBounds={(id) => getWorldBounds(doc, id)}
         />
       )}
+      {ready && <CommentsOverlay cameraRef={cameraRef} />}
       {textEditorNodeId && (
         <TextEditorOverlay
           doc={doc}

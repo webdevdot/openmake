@@ -5,6 +5,9 @@ export interface CreateCommentInput {
   nodeId?: string;
   authorId: string;
   body: string;
+  /** World-space canvas pin coordinates for free-point (non-node) comments. */
+  anchorX?: number;
+  anchorY?: number;
   parentId?: string;
 }
 

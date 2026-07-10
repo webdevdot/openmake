@@ -31,6 +31,7 @@ const TOOL_KEYS: Record<string, ToolId> = {
   k: 'image',
   t: 'text',
   h: 'hand',
+  c: 'comment',
 };
 
 /**

@@ -112,8 +112,15 @@ describe('BottomToolbar', () => {
     expect(screen.getByTestId('tool-select').getAttribute('aria-pressed')).toBe('false');
   });
 
-  it('the comment placeholder button is disabled', () => {
+  it('the comment button activates the comment tool', () => {
     render(<BottomToolbar />);
-    expect((screen.getByTitle('Comment') as HTMLButtonElement).disabled).toBe(true);
+    const commentBtn = screen.getByTestId('tool-comment') as HTMLButtonElement;
+    expect(commentBtn.disabled).toBe(false);
+    expect(commentBtn.getAttribute('aria-pressed')).toBe('false');
+
+    fireEvent.click(commentBtn);
+
+    expect(useToolStore.getState().tool).toBe('comment');
+    expect(screen.getByTestId('tool-comment').getAttribute('aria-pressed')).toBe('true');
   });
 });
