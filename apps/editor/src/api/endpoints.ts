@@ -2,6 +2,8 @@ import { api } from './client.js';
 import type {
   Agent,
   AuthResponse,
+  Comment,
+  CreateCommentInput,
   FileMeta,
   Org,
   Project,
@@ -37,9 +39,7 @@ export const filesApi = {
   list: (projectId: string) =>
     api.get<{ files: FileMeta[] }>(`/projects/${projectId}/files`).then((r) => r.files),
   listDeleted: (projectId: string) =>
-    api
-      .get<{ files: FileMeta[] }>(`/projects/${projectId}/files?deleted=1`)
-      .then((r) => r.files),
+    api.get<{ files: FileMeta[] }>(`/projects/${projectId}/files?deleted=1`).then((r) => r.files),
   create: (projectId: string, name: string) =>
     api.post<{ file: FileMeta }>(`/projects/${projectId}/files`, { name }).then((r) => r.file),
   import: (projectId: string, body: { name: string; document: unknown }) =>
@@ -62,6 +62,19 @@ export const filesApi = {
 export const projectDetailApi = {
   get: (projectId: string) =>
     api.get<{ project: Project }>(`/projects/${projectId}`).then((r) => r.project),
+};
+
+export const commentsApi = {
+  list: (fileId: string) =>
+    api.get<{ comments: Comment[] }>(`/files/${fileId}/comments`).then((r) => r.comments),
+  create: (fileId: string, input: CreateCommentInput) =>
+    api.post<{ comment: Comment }>(`/files/${fileId}/comments`, input).then((r) => r.comment),
+  setResolved: (fileId: string, commentId: string, resolved: boolean) =>
+    api
+      .patch<{ comment: Comment }>(`/files/${fileId}/comments/${commentId}`, { resolved })
+      .then((r) => r.comment),
+  delete: (fileId: string, commentId: string) =>
+    api.delete<void>(`/files/${fileId}/comments/${commentId}`),
 };
 
 export const aiApi = {

@@ -53,3 +53,28 @@ export interface WorkflowRunResult {
   steps: Array<{ agentId: string; output: string }>;
   final: string;
 }
+
+export interface Comment {
+  id: string;
+  fileId: string;
+  nodeId: string | null;
+  authorId: string;
+  body: string;
+  /** World-space canvas pin coordinates for free-point comments (null for node/general). */
+  anchorX: number | null;
+  anchorY: number | null;
+  resolvedAt: string | null;
+  parentId: string | null;
+  createdAt: string;
+  updatedAt: string;
+  /** Present on top-level threads returned by the list endpoint. */
+  replies?: Comment[];
+}
+
+export interface CreateCommentInput {
+  body: string;
+  nodeId?: string;
+  anchorX?: number;
+  anchorY?: number;
+  parentId?: string;
+}

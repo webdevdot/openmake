@@ -8,6 +8,7 @@ import { useAwareness } from '../hooks/useAwareness.js';
 import { useUrlSync } from '../hooks/useUrlSync.js';
 import { useSelectionStore } from '../store/selection.js';
 import { useToolStore } from '../store/tool.js';
+import { useCommentsStore } from '../store/comments.js';
 import { useCameraStore } from '../store/camera.js';
 import { useImageStore } from '../store/images.js';
 import { clampZoom, screenToWorld, zoomByFactor } from '../canvas/camera.js';
@@ -17,6 +18,7 @@ import { exportNodePNG, exportNodeSVG } from '../lib/nodeExport.js';
 import { loadEditorFonts } from '../canvas/fonts.js';
 import { TopBar } from '../components/toolbar/TopBar.js';
 import { BottomToolbar } from '../components/toolbar/BottomToolbar.js';
+import { CommentsPanel } from '../components/canvas/CommentsPanel.js';
 import { LeftPanel } from '../components/panels/LeftPanel.js';
 import { Inspector } from '../components/inspector/Inspector.js';
 import { Canvas } from '../components/canvas/Canvas.js';
@@ -31,10 +33,20 @@ export function EditorPage() {
   const [presenting, setPresenting] = useState<string | null>(null);
   const canvasWrapRef = useRef<HTMLDivElement>(null);
 
+  const tool = useToolStore((s) => s.tool);
+
   useEffect(() => {
     void initLayout().then(() => setLayoutReady(true));
     void loadEditorFonts();
   }, []);
+
+  // Comments are server data (not in the Y.Doc): fetch on file open, clear on
+  // unmount / file switch. Optimistic mutations keep the local store in sync.
+  useEffect(() => {
+    if (!fileId) return;
+    void useCommentsStore.getState().load(fileId);
+    return () => useCommentsStore.getState().reset();
+  }, [fileId]);
 
   // Re-evaluated on every doc change: when opening an existing file the pages
   // only exist after the first sync message lands, not when the session mounts.
@@ -239,6 +251,7 @@ export function EditorPage() {
           <div ref={canvasWrapRef} className="relative flex flex-1 overflow-hidden">
             {canvasEl}
             <BottomToolbar />
+            {tool === 'comment' && <CommentsPanel />}
           </div>
           {timelineTarget && <TimelinePanel doc={session.doc} node={timelineTarget} />}
         </div>
