@@ -35,7 +35,7 @@ describe('Canvas comment tool', () => {
     const pageId = doc.getPages()[0]!;
     useToolStore.setState({ tool: 'comment' });
 
-    render(<Canvas doc={doc} pageId={pageId} />);
+    render(<Canvas doc={doc} pageId={pageId} fileId="file-1" />);
     await waitFor(() => expect(screen.getByTestId('comments-overlay')).toBeTruthy());
 
     const surface = screen.getByTestId('canvas-surface');
