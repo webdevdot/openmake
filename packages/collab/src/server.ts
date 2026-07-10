@@ -44,6 +44,14 @@ interface Room {
   ) => void;
 }
 
+/**
+ * Origin tag for updates produced by {@link DocSyncHub.applyContentUpdate}
+ * (e.g. version restore). The room's `onUpdate` handler still BROADCASTS these
+ * to connected peers, but skips its fire-and-forget persist — the method
+ * persists them itself and awaits it, so callers get durability before return.
+ */
+export const CONTENT_UPDATE_ORIGIN = Symbol('openmake:content-update');
+
 const DEFAULT_COMPACT_AFTER_UPDATES = 200;
 /** Reject inbound frames larger than this (DoS guard). 4 MiB comfortably fits real doc updates. */
 const DEFAULT_MAX_MESSAGE_BYTES = 4 * 1024 * 1024;
@@ -72,6 +80,48 @@ export class DocSyncHub {
   async getDoc(docId: string): Promise<Y.Doc> {
     const room = await this.getRoom(docId);
     return room.ydoc;
+  }
+
+  /**
+   * Applies a content mutation to the canonical server doc as a SINGLE new
+   * update, then persists it (awaited) and broadcasts it to connected peers.
+   *
+   * This is the non-destructive write path used by version restore: `mutate`
+   * rewrites the doc's contents (via `replaceDocContent`) inside one Yjs
+   * transaction, producing one update that is APPENDED to the log — history is
+   * never reset or truncated, connected editors converge via the broadcast, and
+   * the change is itself an ordinary undoable edit.
+   *
+   * If no live room exists, one is loaded from persistence to apply the update
+   * and then torn down (without a spurious compaction) so no idle doc leaks.
+   */
+  async applyContentUpdate(docId: string, mutate: (ydoc: Y.Doc) => void): Promise<void> {
+    const preExisting = this.rooms.has(docId);
+    const room = await this.getRoom(docId);
+
+    let captured: Uint8Array | undefined;
+    const capture = (update: Uint8Array, origin: unknown): void => {
+      if (origin === CONTENT_UPDATE_ORIGIN) captured = update;
+    };
+    room.ydoc.on('update', capture);
+    try {
+      room.ydoc.transact(() => mutate(room.ydoc), CONTENT_UPDATE_ORIGIN);
+    } finally {
+      room.ydoc.off('update', capture);
+    }
+
+    // A no-op restore (target already equals current) emits no update — nothing
+    // to persist, and correctly leaves the log untouched.
+    if (captured) await this.persistUpdate(docId, room, captured);
+
+    if (!preExisting && room.sockets.size === 0) {
+      // We loaded this room solely to apply the update. Reset the pending count
+      // so closeDoc's flush doesn't compact (which would fold the freshly
+      // appended update into a snapshot and delete it); the appended DocUpdate
+      // is the durable record.
+      room.updateCount = 0;
+      await this.closeDoc(docId);
+    }
   }
 
   connectionCount(docId: string): number {
@@ -179,6 +229,9 @@ export class DocSyncHub {
 
     room.onUpdate = (update: Uint8Array, origin: unknown) => {
       this.broadcastUpdate(room, update, origin);
+      // Content updates (version restore) are persisted+awaited by
+      // applyContentUpdate itself; don't also fire-and-forget them here.
+      if (origin === CONTENT_UPDATE_ORIGIN) return;
       void this.persistUpdate(docId, room, update);
     };
     ydoc.on('update', room.onUpdate);

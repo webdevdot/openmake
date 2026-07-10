@@ -44,3 +44,82 @@ export async function persistFullState(db: Database, fileId: string, ydoc: Y.Doc
   const maxSeq = updates.length > 0 ? Math.max(...updates.map((u) => u.seq)) : 0;
   await db.docs.compact(fileId, maxSeq, state);
 }
+
+/**
+ * Raised when a named version's `seq` can no longer be reconstructed from the
+ * retained snapshots + log (its updates were compacted away and no snapshot
+ * captures that exact point). We refuse rather than restore WRONG content.
+ * In practice this never fires for versions created by {@link captureVersion},
+ * which write a correctly-labelled snapshot at the captured seq.
+ */
+export class VersionUnavailableError extends Error {
+  constructor(message = 'This version can no longer be reconstructed from history') {
+    super(message);
+    this.name = 'VersionUnavailableError';
+  }
+}
+
+/**
+ * Hydrates the exact Yjs state a file had as of `targetSeq`: the latest
+ * snapshot at or before `targetSeq`, plus every update in
+ * `(snapshot.upToSeq, targetSeq]`.
+ *
+ * Reconstruction is exact ONLY if all those updates are still retained. Since
+ * seqs are contiguous and compaction only deletes a prefix, a short count means
+ * a later compaction deleted updates this version needs — we throw
+ * {@link VersionUnavailableError} instead of returning a wrong state.
+ */
+export async function loadMergedYDocAtSeq(
+  db: Database,
+  fileId: string,
+  targetSeq: number,
+): Promise<Y.Doc> {
+  const snapshot = await db.docs.snapshotAtOrBefore(fileId, targetSeq);
+  const baseSeq = snapshot?.upToSeq ?? 0;
+  const updates = await db.docs.listUpdatesInRange(fileId, baseSeq, targetSeq);
+
+  if (updates.length < targetSeq - baseSeq) {
+    throw new VersionUnavailableError();
+  }
+
+  const ydoc = new Y.Doc();
+  Y.transact(ydoc, () => {
+    if (snapshot) Y.applyUpdate(ydoc, snapshot.state);
+    for (const update of updates) Y.applyUpdate(ydoc, update.update);
+  });
+  return ydoc;
+}
+
+/**
+ * Captures the current document state as a named checkpoint from ONE consistent
+ * DB read, so the recorded state and its `seq` label always agree.
+ *
+ * It writes a correctly-labelled DocSnapshot at the captured seq (WITHOUT
+ * deleting any updates — `saveSnapshot`, not `compact`) and then the DocVersion
+ * label row. The extra snapshot is what makes the checkpoint durable: because
+ * compaction never deletes snapshots, the version stays reconstructable forever,
+ * even after the live log is compacted past it.
+ */
+export async function captureVersion(
+  db: Database,
+  fileId: string,
+  name: string,
+  authorId: string,
+): Promise<{ id: string; name: string; seq: number; createdAt: Date }> {
+  const snapshot = await findLatestSnapshot(db, fileId);
+  const updates = await db.docs.listUpdatesSince(fileId, snapshot?.upToSeq ?? 0);
+  const seq =
+    updates.length > 0 ? Math.max(...updates.map((u) => u.seq)) : (snapshot?.upToSeq ?? 0);
+
+  const ydoc = new Y.Doc();
+  Y.transact(ydoc, () => {
+    if (snapshot) Y.applyUpdate(ydoc, snapshot.state);
+    for (const update of updates) Y.applyUpdate(ydoc, update.update);
+  });
+  const state = Y.encodeStateAsUpdate(ydoc);
+
+  // Correctly-labelled checkpoint snapshot (additive; deletes nothing).
+  await db.docs.saveSnapshot(fileId, seq, state);
+  const version = await db.docs.createVersion({ fileId, name, seq, authorId });
+  return { id: version.id, name: version.name, seq: version.seq, createdAt: version.createdAt };
+}

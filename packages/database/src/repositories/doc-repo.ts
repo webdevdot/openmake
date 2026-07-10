@@ -1,4 +1,21 @@
-import type { DocSnapshot, DocUpdate, PrismaClient } from '../../generated/client/client.js';
+import type {
+  DocSnapshot,
+  DocUpdate,
+  DocVersion,
+  PrismaClient,
+} from '../../generated/client/client.js';
+
+export interface CreateVersionInput {
+  fileId: string;
+  name: string;
+  seq: number;
+  authorId: string;
+}
+
+/** A named version enriched with its author's public identity, for listings. */
+export type DocVersionWithAuthor = DocVersion & {
+  author: { id: string; name: string };
+};
 
 export class DocRepo {
   constructor(private readonly prisma: PrismaClient) {}
@@ -59,6 +76,74 @@ export class DocRepo {
       where: { fileId },
       orderBy: { upToSeq: 'desc' },
     });
+  }
+
+  /**
+   * The highest sequence currently represented for a file: the max of the
+   * latest raw update's seq and the latest snapshot's `upToSeq` (compaction
+   * deletes updates but records their high-water mark on the snapshot). Returns
+   * 0 for a file with no updates and no snapshots.
+   */
+  async maxSeq(fileId: string): Promise<number> {
+    const [lastUpdate, latestSnapshot] = await Promise.all([
+      this.prisma.docUpdate.findFirst({
+        where: { fileId },
+        orderBy: { seq: 'desc' },
+        select: { seq: true },
+      }),
+      this.prisma.docSnapshot.findFirst({
+        where: { fileId },
+        orderBy: [{ upToSeq: 'desc' }, { createdAt: 'desc' }],
+        select: { upToSeq: true },
+      }),
+    ]);
+    return Math.max(lastUpdate?.seq ?? 0, latestSnapshot?.upToSeq ?? 0);
+  }
+
+  /** The latest snapshot whose `upToSeq` is at or below `seq` (reconstruction base). */
+  snapshotAtOrBefore(fileId: string, seq: number): Promise<DocSnapshot | null> {
+    return this.prisma.docSnapshot.findFirst({
+      where: { fileId, upToSeq: { lte: seq } },
+      orderBy: [{ upToSeq: 'desc' }, { createdAt: 'desc' }],
+    });
+  }
+
+  /** Updates in the half-open range `(afterSeq, throughSeq]`, in order. */
+  listUpdatesInRange(fileId: string, afterSeq: number, throughSeq: number): Promise<DocUpdate[]> {
+    return this.prisma.docUpdate.findMany({
+      where: { fileId, seq: { gt: afterSeq, lte: throughSeq } },
+      orderBy: { seq: 'asc' },
+    });
+  }
+
+  /** Recent auto-compaction snapshots for a file, newest first. */
+  listSnapshots(fileId: string, take = 20): Promise<DocSnapshot[]> {
+    return this.prisma.docSnapshot.findMany({
+      where: { fileId },
+      orderBy: { createdAt: 'desc' },
+      take,
+    });
+  }
+
+  // ---------------------------------------------------------------------------
+  // Named versions (labels pointing at a log seq; store no document state)
+  // ---------------------------------------------------------------------------
+
+  createVersion(input: CreateVersionInput): Promise<DocVersion> {
+    return this.prisma.docVersion.create({ data: input });
+  }
+
+  /** Named versions for a file, newest first, with author identity. */
+  listVersions(fileId: string): Promise<DocVersionWithAuthor[]> {
+    return this.prisma.docVersion.findMany({
+      where: { fileId },
+      orderBy: { createdAt: 'desc' },
+      include: { author: { select: { id: true, name: true } } },
+    });
+  }
+
+  findVersionById(id: string): Promise<DocVersion | null> {
+    return this.prisma.docVersion.findUnique({ where: { id } });
   }
 
   /**

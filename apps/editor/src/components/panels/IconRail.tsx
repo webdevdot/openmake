@@ -1,7 +1,7 @@
-import { FileText, Sparkles, Component, Wrench, Variable } from 'lucide-react';
+import { FileText, Sparkles, Component, Wrench, Variable, History } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 
-export type RailSection = 'file' | 'agents' | 'assets' | 'tools' | 'variables';
+export type RailSection = 'file' | 'agents' | 'assets' | 'tools' | 'variables' | 'history';
 
 const RAIL_ITEMS: Array<{ id: RailSection; label: string; icon: LucideIcon }> = [
   { id: 'file', label: 'File', icon: FileText },
@@ -9,6 +9,7 @@ const RAIL_ITEMS: Array<{ id: RailSection; label: string; icon: LucideIcon }> = 
   { id: 'assets', label: 'Assets', icon: Component },
   { id: 'tools', label: 'Tools', icon: Wrench },
   { id: 'variables', label: 'Variables', icon: Variable },
+  { id: 'history', label: 'History', icon: History },
 ];
 
 export interface IconRailProps {

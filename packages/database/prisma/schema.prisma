@@ -32,6 +32,7 @@ model User {
   comments        Comment[]
   aiConversations AiConversation[]
   auditLogs       AuditLog[]
+  docVersions     DocVersion[]
 
   @@map("users")
 }
@@ -124,6 +125,7 @@ model File {
   project     Project        @relation(fields: [projectId], references: [id], onDelete: Cascade)
   docUpdates  DocUpdate[]
   docSnapshots DocSnapshot[]
+  docVersions DocVersion[]
   components  Component[]
   comments    Comment[]
 
@@ -147,6 +149,27 @@ model DocUpdate {
 
   @@unique([fileId, seq])
   @@map("doc_updates")
+}
+
+/// A user-named checkpoint. Non-destructive by construction: it stores NO
+/// document state, only a label pointing at the log sequence (`seq`) it
+/// captures. The state as of that seq is reconstructed from snapshots + the
+/// append-only update log (creating a version also writes a correctly-labelled
+/// DocSnapshot at `seq`, so the checkpoint stays reconstructable even after the
+/// live log is compacted — snapshots are never deleted by compaction).
+model DocVersion {
+  id        String   @id @default(cuid())
+  fileId    String   @map("file_id")
+  name      String
+  seq       Int
+  authorId  String   @map("author_id")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  file   File @relation(fields: [fileId], references: [id], onDelete: Cascade)
+  author User @relation(fields: [authorId], references: [id], onDelete: Cascade)
+
+  @@index([fileId, createdAt])
+  @@map("doc_versions")
 }
 
 /// Compacted Yjs state, used to bound replay cost.

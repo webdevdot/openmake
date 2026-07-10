@@ -16,6 +16,7 @@ export { FileRepo } from './repositories/file-repo.js';
 export type { CreateFileInput, UpdateFileInput } from './repositories/file-repo.js';
 
 export { DocRepo } from './repositories/doc-repo.js';
+export type { CreateVersionInput, DocVersionWithAuthor } from './repositories/doc-repo.js';
 
 export {
   ComponentRepo,

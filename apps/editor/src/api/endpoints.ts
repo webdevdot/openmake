@@ -2,6 +2,8 @@ import { api } from './client.js';
 import type {
   Agent,
   AuthResponse,
+  AutoCheckpoint,
+  DocVersion,
   FileMeta,
   Org,
   Project,
@@ -37,9 +39,7 @@ export const filesApi = {
   list: (projectId: string) =>
     api.get<{ files: FileMeta[] }>(`/projects/${projectId}/files`).then((r) => r.files),
   listDeleted: (projectId: string) =>
-    api
-      .get<{ files: FileMeta[] }>(`/projects/${projectId}/files?deleted=1`)
-      .then((r) => r.files),
+    api.get<{ files: FileMeta[] }>(`/projects/${projectId}/files?deleted=1`).then((r) => r.files),
   create: (projectId: string, name: string) =>
     api.post<{ file: FileMeta }>(`/projects/${projectId}/files`, { name }).then((r) => r.file),
   import: (projectId: string, body: { name: string; document: unknown }) =>
@@ -49,6 +49,27 @@ export const filesApi = {
   restore: (fileId: string) =>
     api.post<{ file: FileMeta }>(`/files/${fileId}/restore`).then((r) => r.file),
   snapshot: (fileId: string) => api.getBinary(`/files/${fileId}/snapshot`),
+};
+
+/** Named version history: non-destructive checkpoints + restore. */
+export const versionsApi = {
+  list: (fileId: string) =>
+    api.get<{ versions: DocVersion[]; autoCheckpoints: AutoCheckpoint[] }>(
+      `/files/${fileId}/versions`,
+    ),
+  create: (fileId: string, name: string) =>
+    api
+      .post<{ version: { id: string; name: string; seq: number; createdAt: string } }>(
+        `/files/${fileId}/versions`,
+        { name },
+      )
+      .then((r) => r.version),
+  restore: (fileId: string, versionId: string) =>
+    api
+      .post<{ version: { id: string; name: string; seq: number; createdAt: string } }>(
+        `/files/${fileId}/versions/${versionId}/restore`,
+      )
+      .then((r) => r.version),
 };
 
 // The editor only knows the fileId; the AI endpoints are org-scoped. Resolve the

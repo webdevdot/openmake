@@ -67,6 +67,7 @@ const TABLES = [
   'skills',
   'component_embeddings',
   'components',
+  'doc_versions',
   'doc_snapshots',
   'doc_updates',
   'files',
