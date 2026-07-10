@@ -4,6 +4,7 @@ import { PagesList } from './PagesList.js';
 import { LayersTree } from './LayersTree.js';
 import { AgentsPanel } from './AgentsPanel.js';
 import { AssetsPanel } from './AssetsPanel.js';
+import { VersionHistoryPanel } from './VersionHistoryPanel.js';
 import { ToolsPanel } from './ToolsPanel.js';
 import { VariablesPanel } from './VariablesPanel.js';
 import { IconRail, type RailSection } from './IconRail.js';
@@ -59,6 +60,11 @@ export function LeftPanel({
       {section === 'variables' && (
         <div className={`flex ${VARIABLES_PANEL_WIDTH} shrink-0 flex-col border-r bg-panel border-app`}>
           <VariablesPanel doc={doc} />
+        </div>
+      )}
+      {section === 'history' && (
+        <div className="flex w-panel-left shrink-0 flex-col border-r bg-panel border-app">
+          <VersionHistoryPanel fileId={fileId} />
         </div>
       )}
     </div>

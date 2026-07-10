@@ -944,3 +944,78 @@ export class OpenDoc {
     return raw as unknown as SceneNode;
   }
 }
+
+/** Builds a YNode (Y.Map) from a plain SceneNode, mirroring OpenDoc's internal layout. */
+function nodeToYMap(node: SceneNode, parentId: string | null): Y.Map<unknown> {
+  const yNode = new Y.Map<unknown>();
+  for (const [key, value] of Object.entries(node)) {
+    if (key === 'children') {
+      yNode.set('children', Y.Array.from(value as string[]));
+    } else {
+      yNode.set(key, value);
+    }
+  }
+  if (parentId) yNode.set('parentId', parentId);
+  return yNode;
+}
+
+/** Deletes keys absent from `next`, then sets every key of `next` (wholesale replace). */
+function replaceYMap<T>(map: Y.Map<T>, next: Record<string, T>): void {
+  for (const key of Array.from(map.keys())) {
+    if (!(key in next)) map.delete(key);
+  }
+  for (const [key, value] of Object.entries(next)) {
+    map.set(key, value);
+  }
+}
+
+/**
+ * Rewrites a Yjs document's CONTENTS so they equal `data`, in place, as a
+ * coarse structural replace: nodes/variables/styles/etc. absent from `data`
+ * are removed and every entry present in `data` is (re)set wholesale.
+ *
+ * This is the mechanism behind non-destructive version restore. The CALLER must
+ * invoke it inside a `Y.transact(...)` so the whole rewrite lands as a single
+ * Yjs update — that update is then appended to the append-only log and broadcast
+ * to peers exactly like any other edit, so restore is itself an ordinary,
+ * undoable, convergent CRDT change (it never resets or truncates history).
+ *
+ * It is a content REPLACE, not a semantic 3-way merge: each changed node's map
+ * is replaced wholesale rather than diffed field-by-field. That is the correct
+ * meaning of "restore this document to how it looked at version N".
+ */
+export function replaceDocContent(ydoc: Y.Doc, data: DocumentData): void {
+  const validated = DocumentDataSchema.parse(data);
+
+  const nodes = ydoc.getMap('nodes') as Y.Map<Y.Map<unknown>>;
+  const meta = ydoc.getMap('meta');
+  const variablesMap = ydoc.getMap('variables') as Y.Map<Variable>;
+  const variableCollectionsMap = ydoc.getMap(
+    'variableCollections',
+  ) as Y.Map<VariableCollection>;
+  const stylesMap = ydoc.getMap('styles') as Y.Map<Style>;
+  const assetsMap = ydoc.getMap('assets') as Y.Map<AssetRef>;
+
+  const parentOf = new Map<string, string>();
+  for (const [id, node] of Object.entries(validated.nodes)) {
+    const children = (node as { children?: string[] }).children ?? [];
+    for (const childId of children) parentOf.set(childId, id);
+  }
+
+  meta.set('schemaVersion', validated.schemaVersion);
+  meta.set('id', validated.id);
+  meta.set('name', validated.name);
+  meta.set('rootId', validated.rootId);
+
+  for (const key of Array.from(nodes.keys())) {
+    if (!(key in validated.nodes)) nodes.delete(key);
+  }
+  for (const [id, node] of Object.entries(validated.nodes)) {
+    nodes.set(id, nodeToYMap(node, parentOf.get(id) ?? null));
+  }
+
+  replaceYMap(variablesMap, validated.variables);
+  replaceYMap(variableCollectionsMap, validated.variableCollections);
+  replaceYMap(stylesMap, validated.styles);
+  replaceYMap(assetsMap, validated.assets);
+}

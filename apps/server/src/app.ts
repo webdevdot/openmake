@@ -15,6 +15,7 @@ import { authRoutes } from './routes/auth.js';
 import { orgRoutes } from './routes/orgs.js';
 import { projectRoutes } from './routes/projects.js';
 import { fileRoutes } from './routes/files.js';
+import { versionRoutes } from './routes/versions.js';
 import { syncRoutes } from './routes/sync.js';
 import { skillRoutes } from './routes/skills.js';
 import { agentRoutes } from './routes/agents.js';
@@ -123,6 +124,7 @@ export async function buildApp(
   await app.register(orgRoutes, { prefix: v1Prefix });
   await app.register(projectRoutes, { prefix: v1Prefix });
   await app.register(fileRoutes, { prefix: v1Prefix });
+  await app.register(versionRoutes, { prefix: v1Prefix });
   await app.register(skillRoutes, { prefix: v1Prefix });
   await app.register(agentRoutes, { prefix: v1Prefix });
   await app.register(workflowRoutes, { prefix: v1Prefix });

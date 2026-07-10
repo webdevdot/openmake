@@ -1,6 +1,7 @@
 export {
   OpenDoc,
   LOCAL_ORIGIN,
+  replaceDocContent,
   resolveVariableValue,
   type CreateNodeInput,
 } from './doc.js';

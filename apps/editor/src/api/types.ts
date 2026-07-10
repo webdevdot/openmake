@@ -27,6 +27,20 @@ export interface FileMeta {
   updatedAt: string;
 }
 
+export interface DocVersion {
+  id: string;
+  name: string;
+  seq: number;
+  createdAt: string;
+  author: { id: string; name: string };
+}
+
+export interface AutoCheckpoint {
+  id: string;
+  upToSeq: number;
+  createdAt: string;
+}
+
 export interface Skill {
   id: string;
   name: string;

@@ -2,8 +2,10 @@ import { api } from './client.js';
 import type {
   Agent,
   AuthResponse,
+  AutoCheckpoint,
   Comment,
   CreateCommentInput,
+  DocVersion,
   FileMeta,
   Org,
   Project,
@@ -55,6 +57,27 @@ export const filesApi = {
     api.putBinary(`/files/${fileId}/assets/${hash}`, bytes, mime),
   fetchAsset: (fileId: string, hash: string) =>
     api.getBinary(`/files/${fileId}/assets/${hash}`),
+};
+
+/** Named version history: non-destructive checkpoints + restore. */
+export const versionsApi = {
+  list: (fileId: string) =>
+    api.get<{ versions: DocVersion[]; autoCheckpoints: AutoCheckpoint[] }>(
+      `/files/${fileId}/versions`,
+    ),
+  create: (fileId: string, name: string) =>
+    api
+      .post<{ version: { id: string; name: string; seq: number; createdAt: string } }>(
+        `/files/${fileId}/versions`,
+        { name },
+      )
+      .then((r) => r.version),
+  restore: (fileId: string, versionId: string) =>
+    api
+      .post<{ version: { id: string; name: string; seq: number; createdAt: string } }>(
+        `/files/${fileId}/versions/${versionId}/restore`,
+      )
+      .then((r) => r.version),
 };
 
 // The editor only knows the fileId; the AI endpoints are org-scoped. Resolve the
