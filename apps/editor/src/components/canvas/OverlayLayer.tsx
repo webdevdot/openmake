@@ -71,7 +71,12 @@ export function OverlayLayer({
   if (!camera) return null;
 
   const singleSelectedId = selection.length === 1 ? selection[0]! : null;
-  const singleBounds = singleSelectedId ? getWorldBounds(singleSelectedId) : null;
+  // Guard against a stale selection whose node no longer exists — e.g. after a
+  // version restore removes it, or a collaborator deletes it out from under us.
+  // Without this, getWorldBounds throws "Node does not exist" and crashes the
+  // whole editor via the router error boundary. Mirrors the guard at line ~84.
+  const singleBounds =
+    singleSelectedId && doc.getNode(singleSelectedId) ? getWorldBounds(singleSelectedId) : null;
 
   return (
     <div

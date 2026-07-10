@@ -3,6 +3,7 @@ import { History, RotateCcw } from 'lucide-react';
 import { versionsApi } from '../../api/endpoints.js';
 import type { AutoCheckpoint, DocVersion } from '../../api/types.js';
 import { ApiError } from '../../api/client.js';
+import { useSelectionStore } from '../../store/selection.js';
 
 export interface VersionHistoryPanelProps {
   fileId: string;
@@ -152,6 +153,9 @@ export function VersionHistoryPanel({ fileId }: VersionHistoryPanelProps) {
     setNotice(null);
     try {
       const restored = await versionsApi.restore(fileId, versionId);
+      // The restored state may not contain the currently-selected node; clear
+      // selection so no stale id lingers (also drops the ?node-id deep link).
+      useSelectionStore.getState().clear();
       setNotice(`Restored "${restored.name}" as a new edit`);
     } catch (err) {
       setError(errMessage(err));
